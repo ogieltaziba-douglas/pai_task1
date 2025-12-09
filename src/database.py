@@ -4,8 +4,18 @@ Database Module
 This module provides functions for SQLite database operations
 for storing and managing public health vaccination data.
 
-Note: This file contains STUBS only. Implementation will follow after
-tests are verified to fail (TDD approach).
+Functions:
+    create_connection: Connect to SQLite database
+    close_connection: Close database connection
+    create_table: Create a new table
+    table_exists: Check if table exists
+    insert_dataframe: Insert DataFrame into table
+    fetch_all: Retrieve all records from table
+    execute_query: Run custom SQL query
+    create_record: Insert single record
+    read_record: Read single record by ID
+    update_record: Update record by ID
+    delete_record: Delete record by ID
 """
 
 import sqlite3
@@ -21,8 +31,16 @@ def create_connection(db_path: str) -> sqlite3.Connection:
 
     Returns:
         sqlite3.Connection object.
+
+    Example:
+        >>> conn = create_connection('data/health.db')
+        >>> # Use connection...
+        >>> close_connection(conn)
     """
-    raise NotImplementedError("create_connection not yet implemented")
+    conn = sqlite3.connect(db_path)
+    # Enable foreign keys and return rows as Row objects for dict-like access
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def close_connection(conn: sqlite3.Connection) -> bool:
@@ -35,7 +53,11 @@ def close_connection(conn: sqlite3.Connection) -> bool:
     Returns:
         True if connection was closed successfully.
     """
-    raise NotImplementedError("close_connection not yet implemented")
+    try:
+        conn.close()
+        return True
+    except Exception:
+        return False
 
 
 def create_table(conn: sqlite3.Connection, table_name: str, columns: dict) -> bool:
@@ -46,11 +68,28 @@ def create_table(conn: sqlite3.Connection, table_name: str, columns: dict) -> bo
         conn: Database connection.
         table_name: Name of the table to create.
         columns: Dictionary of column_name: column_type pairs.
+                 Example: {'id': 'INTEGER PRIMARY KEY', 'name': 'TEXT'}
 
     Returns:
         True if table was created successfully.
+
+    Example:
+        >>> columns = {'id': 'INTEGER PRIMARY KEY', 'location': 'TEXT'}
+        >>> create_table(conn, 'vaccinations', columns)
     """
-    raise NotImplementedError("create_table not yet implemented")
+    try:
+        # Build column definitions
+        column_defs = ", ".join([f"{name} {dtype}" for name, dtype in columns.items()])
+
+        # Create the table
+        query = f"CREATE TABLE IF NOT EXISTS {table_name} ({column_defs})"
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error creating table: {e}")
+        return False
 
 
 def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
@@ -64,7 +103,12 @@ def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     Returns:
         True if table exists, False otherwise.
     """
-    raise NotImplementedError("table_exists not yet implemented")
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+    )
+    result = cursor.fetchone()
+    return result is not None
 
 
 def insert_dataframe(
@@ -73,6 +117,8 @@ def insert_dataframe(
     """
     Insert a DataFrame into a database table.
 
+    Creates the table if it doesn't exist, using DataFrame columns.
+
     Args:
         conn: Database connection.
         table_name: Name of the table to insert into.
@@ -80,8 +126,34 @@ def insert_dataframe(
 
     Returns:
         Number of rows inserted.
+
+    Example:
+        >>> df = pd.DataFrame({'location': ['UK', 'US'], 'cases': [100, 200]})
+        >>> rows = insert_dataframe(conn, 'data', df)
+        >>> print(f"Inserted {rows} rows")
     """
-    raise NotImplementedError("insert_dataframe not yet implemented")
+    if df.empty:
+        return 0
+
+    try:
+        # Use pandas to_sql for easy insertion
+        # 'append' mode adds to existing table or creates if not exists
+        rows_before = 0
+        if table_exists(conn, table_name):
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            rows_before = cursor.fetchone()[0]
+
+        df.to_sql(table_name, conn, if_exists="append", index=False)
+
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        rows_after = cursor.fetchone()[0]
+
+        return rows_after - rows_before
+    except Exception as e:
+        print(f"Error inserting data: {e}")
+        return 0
 
 
 def fetch_all(conn: sqlite3.Connection, table_name: str) -> pd.DataFrame:
@@ -94,8 +166,13 @@ def fetch_all(conn: sqlite3.Connection, table_name: str) -> pd.DataFrame:
 
     Returns:
         DataFrame containing all records.
+
+    Example:
+        >>> df = fetch_all(conn, 'vaccinations')
+        >>> print(df.head())
     """
-    raise NotImplementedError("fetch_all not yet implemented")
+    query = f"SELECT * FROM {table_name}"
+    return pd.read_sql_query(query, conn)
 
 
 def execute_query(conn: sqlite3.Connection, query: str) -> pd.DataFrame:
@@ -108,8 +185,11 @@ def execute_query(conn: sqlite3.Connection, query: str) -> pd.DataFrame:
 
     Returns:
         DataFrame containing query results.
+
+    Example:
+        >>> result = execute_query(conn, "SELECT * FROM data WHERE cases > 100")
     """
-    raise NotImplementedError("execute_query not yet implemented")
+    return pd.read_sql_query(query, conn)
 
 
 def create_record(conn: sqlite3.Connection, table_name: str, data: dict) -> int:
@@ -122,54 +202,106 @@ def create_record(conn: sqlite3.Connection, table_name: str, data: dict) -> int:
         data: Dictionary of column: value pairs.
 
     Returns:
-        ID of the created record.
+        ID (rowid) of the created record.
+
+    Example:
+        >>> record = {'location': 'France', 'cases': 150}
+        >>> record_id = create_record(conn, 'data', record)
     """
-    raise NotImplementedError("create_record not yet implemented")
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join(["?" for _ in data])
+    values = tuple(data.values())
+
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
+    cursor = conn.cursor()
+    cursor.execute(query, values)
+    conn.commit()
+
+    return cursor.lastrowid
 
 
 def read_record(conn: sqlite3.Connection, table_name: str, record_id: int) -> dict:
     """
-    Read a single record by ID.
+    Read a single record by ID (rowid).
 
     Args:
         conn: Database connection.
         table_name: Name of the table.
-        record_id: ID of the record to read.
+        record_id: ID (rowid) of the record to read.
 
     Returns:
         Dictionary containing the record, or None if not found.
+
+    Example:
+        >>> record = read_record(conn, 'vaccinations', 1)
+        >>> if record:
+        >>>     print(record['location'])
     """
-    raise NotImplementedError("read_record not yet implemented")
+    query = f"SELECT rowid, * FROM {table_name} WHERE rowid = ?"
+
+    cursor = conn.cursor()
+    cursor.execute(query, (record_id,))
+    row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    # Convert Row object to dictionary
+    return dict(row)
 
 
 def update_record(
     conn: sqlite3.Connection, table_name: str, record_id: int, data: dict
 ) -> bool:
     """
-    Update a record by ID.
+    Update a record by ID (rowid).
 
     Args:
         conn: Database connection.
         table_name: Name of the table.
-        record_id: ID of the record to update.
+        record_id: ID (rowid) of the record to update.
         data: Dictionary of column: value pairs to update.
 
     Returns:
         True if record was updated successfully.
+
+    Example:
+        >>> update_record(conn, 'data', 1, {'cases': 200})
     """
-    raise NotImplementedError("update_record not yet implemented")
+    set_clause = ", ".join([f"{col} = ?" for col in data.keys()])
+    values = tuple(data.values()) + (record_id,)
+
+    query = f"UPDATE {table_name} SET {set_clause} WHERE rowid = ?"
+
+    cursor = conn.cursor()
+    cursor.execute(query, values)
+    conn.commit()
+
+    return cursor.rowcount > 0
 
 
 def delete_record(conn: sqlite3.Connection, table_name: str, record_id: int) -> bool:
     """
-    Delete a record by ID.
+    Delete a record by ID (rowid).
 
     Args:
         conn: Database connection.
         table_name: Name of the table.
-        record_id: ID of the record to delete.
+        record_id: ID (rowid) of the record to delete.
 
     Returns:
         True if record was deleted, False if not found.
+
+    Example:
+        >>> deleted = delete_record(conn, 'data', 1)
+        >>> if deleted:
+        >>>     print("Record deleted")
     """
-    raise NotImplementedError("delete_record not yet implemented")
+    query = f"DELETE FROM {table_name} WHERE rowid = ?"
+
+    cursor = conn.cursor()
+    cursor.execute(query, (record_id,))
+    conn.commit()
+
+    return cursor.rowcount > 0

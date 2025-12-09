@@ -1,9 +1,6 @@
 """
 Test module for data_loader.py
 
-This test file is written FIRST following Test-Driven Development (TDD).
-Tests define expected behavior before implementation exists.
-
 Tests cover:
 - Loading CSV files into pandas DataFrames
 - Loading JSON files into pandas DataFrames
@@ -18,7 +15,6 @@ import os
 import tempfile
 import json
 
-# Import the module we're testing (will fail until implemented)
 from src.data_loader import load_csv, load_json, validate_data_structure, get_data_info
 
 

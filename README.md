@@ -75,7 +75,7 @@ pai_task1/
 
 ## Git Repository
 
-**Repository Link**: [Add your repository link here]
+**Repository Link**: https://github.com/ogieltaziba-douglas/pai_task1.git
 
 ## Development Approach
 
@@ -86,7 +86,7 @@ This project follows **Test-Driven Development (TDD)**:
 
 ## Author
 
-[Ogieltaziba Douglas]
+Ogieltaziba Douglas
 
 ## License
 

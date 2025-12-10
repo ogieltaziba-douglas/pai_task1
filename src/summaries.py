@@ -4,11 +4,17 @@ Summaries Module
 This module provides functions for generating statistical summaries
 and aggregations of public health vaccination data.
 
-Note: This file contains STUBS only. Implementation will follow after
-tests are verified to fail (TDD approach).
+Functions:
+    calculate_statistics: Calculate basic statistics for a column
+    count_by_category: Count occurrences by category
+    calculate_trend: Calculate trend information over time
+    group_summary: Calculate grouped aggregations
+    get_top_n: Get top N records by a column
+    get_summary_report: Generate comprehensive summary report
 """
 
 import pandas as pd
+import numpy as np
 from typing import Optional
 
 
@@ -21,9 +27,48 @@ def calculate_statistics(df: pd.DataFrame, column: str) -> dict:
         column: Column name to calculate statistics for.
 
     Returns:
-        Dictionary with mean, min, max, sum, count, std.
+        Dictionary containing:
+            - mean: Average value
+            - min: Minimum value
+            - max: Maximum value
+            - sum: Total sum
+            - count: Number of values
+            - std: Standard deviation
+
+    Example:
+        >>> stats = calculate_statistics(df, 'total_vaccinations')
+        >>> print(f"Average: {stats['mean']:,.0f}")
     """
-    raise NotImplementedError("calculate_statistics not yet implemented")
+    if column not in df.columns or df.empty:
+        return {
+            "mean": None,
+            "min": None,
+            "max": None,
+            "sum": None,
+            "count": 0,
+            "std": None,
+        }
+
+    col_data = df[column].dropna()
+
+    if len(col_data) == 0:
+        return {
+            "mean": None,
+            "min": None,
+            "max": None,
+            "sum": None,
+            "count": 0,
+            "std": None,
+        }
+
+    return {
+        "mean": float(col_data.mean()),
+        "min": float(col_data.min()),
+        "max": float(col_data.max()),
+        "sum": float(col_data.sum()),
+        "count": int(len(col_data)),
+        "std": float(col_data.std()) if len(col_data) > 1 else 0.0,
+    }
 
 
 def count_by_category(df: pd.DataFrame, column: str, sort: bool = True) -> pd.Series:
@@ -33,12 +78,17 @@ def count_by_category(df: pd.DataFrame, column: str, sort: bool = True) -> pd.Se
     Args:
         df: DataFrame to analyze.
         column: Column to count by.
-        sort: Whether to sort by count descending.
+        sort: Whether to sort by count descending (default: True).
 
     Returns:
-        Series with counts per category.
+        Series with category names as index and counts as values.
+
+    Example:
+        >>> country_counts = count_by_category(df, 'location')
+        >>> print(country_counts.head())
     """
-    raise NotImplementedError("count_by_category not yet implemented")
+    counts = df[column].value_counts(sort=sort)
+    return counts
 
 
 def calculate_trend(df: pd.DataFrame, date_column: str, value_column: str) -> dict:
@@ -51,9 +101,43 @@ def calculate_trend(df: pd.DataFrame, date_column: str, value_column: str) -> di
         value_column: Column containing values to track.
 
     Returns:
-        Dictionary with trend direction, change, and percentages.
+        Dictionary containing:
+            - direction: 'increasing', 'decreasing', or 'stable'
+            - start_value: First value in series
+            - end_value: Last value in series
+            - total_change: Absolute change (end - start)
+            - percent_change: Percentage change
+
+    Example:
+        >>> trend = calculate_trend(df, 'date', 'daily_vaccinations')
+        >>> print(f"Trend: {trend['direction']}")
     """
-    raise NotImplementedError("calculate_trend not yet implemented")
+    # Sort by date
+    sorted_df = df.sort_values(date_column).copy()
+
+    # Get start and end values
+    start_value = sorted_df[value_column].iloc[0]
+    end_value = sorted_df[value_column].iloc[-1]
+
+    # Calculate change
+    total_change = end_value - start_value
+    percent_change = (total_change / start_value * 100) if start_value != 0 else 0
+
+    # Determine direction
+    if total_change > 0:
+        direction = "increasing"
+    elif total_change < 0:
+        direction = "decreasing"
+    else:
+        direction = "stable"
+
+    return {
+        "direction": direction,
+        "start_value": float(start_value),
+        "end_value": float(end_value),
+        "total_change": float(total_change),
+        "percent_change": float(percent_change),
+    }
 
 
 def group_summary(
@@ -69,9 +153,26 @@ def group_summary(
         agg_func: Aggregation function ('sum', 'mean', 'max', 'min', 'count').
 
     Returns:
-        Series with aggregated values per group.
+        Series with group names as index and aggregated values.
+
+    Example:
+        >>> country_totals = group_summary(df, 'location', 'total_vaccinations', 'sum')
+        >>> print(country_totals.head())
     """
-    raise NotImplementedError("group_summary not yet implemented")
+    grouped = df.groupby(group_by)[agg_column]
+
+    if agg_func == "sum":
+        return grouped.sum()
+    elif agg_func == "mean":
+        return grouped.mean()
+    elif agg_func == "max":
+        return grouped.max()
+    elif agg_func == "min":
+        return grouped.min()
+    elif agg_func == "count":
+        return grouped.count()
+    else:
+        raise ValueError(f"Unknown aggregation function: {agg_func}")
 
 
 def get_top_n(
@@ -83,13 +184,17 @@ def get_top_n(
     Args:
         df: DataFrame to filter.
         column: Column to sort by.
-        n: Number of records to return.
-        ascending: If True, get bottom N instead.
+        n: Number of records to return (default: 10).
+        ascending: If True, get bottom N instead (default: False).
 
     Returns:
         DataFrame with top N records.
+
+    Example:
+        >>> top_countries = get_top_n(df, 'total_vaccinations', n=10)
+        >>> print(top_countries)
     """
-    raise NotImplementedError("get_top_n not yet implemented")
+    return df.nlargest(n, column) if not ascending else df.nsmallest(n, column)
 
 
 def get_summary_report(
@@ -102,10 +207,26 @@ def get_summary_report(
 
     Args:
         df: DataFrame to summarize.
-        date_column: Optional date column for date range.
+        date_column: Optional date column for date range info.
         location_column: Optional location column for unique count.
 
     Returns:
-        Dictionary with summary information.
+        Dictionary containing:
+            - total_records: Number of rows
+            - date_range: Dict with min and max dates (if date_column provided)
+            - unique_locations: Number of unique locations (if location_column provided)
+
+    Example:
+        >>> report = get_summary_report(df, date_column='date', location_column='location')
+        >>> print(f"Total records: {report['total_records']}")
     """
-    raise NotImplementedError("get_summary_report not yet implemented")
+    report = {"total_records": len(df)}
+
+    if date_column and date_column in df.columns:
+        dates = pd.to_datetime(df[date_column])
+        report["date_range"] = {"min": dates.min(), "max": dates.max()}
+
+    if location_column and location_column in df.columns:
+        report["unique_locations"] = df[location_column].nunique()
+
+    return report

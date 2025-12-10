@@ -4,8 +4,12 @@ Filters Module
 This module provides functions for filtering public health
 vaccination data by various criteria.
 
-Note: This file contains STUBS only. Implementation will follow after
-tests are verified to fail (TDD approach).
+Functions:
+    filter_by_country: Filter by country/region
+    filter_by_date_range: Filter by date range
+    filter_by_value_range: Filter by numeric value range
+    filter_by_category: Filter by category values
+    apply_filters: Apply multiple filters at once
 """
 
 import pandas as pd
@@ -25,9 +29,16 @@ def filter_by_country(
         column: Column name to filter on (default: 'location').
 
     Returns:
-        Filtered DataFrame.
+        Filtered DataFrame containing only specified countries.
+
+    Example:
+        >>> filtered = filter_by_country(df, ['United Kingdom', 'Germany'])
+        >>> filtered = filter_by_country(df, ['GBR', 'DEU'], column='iso_code')
     """
-    raise NotImplementedError("filter_by_country not yet implemented")
+    if column not in df.columns:
+        return df.head(0)  # Return empty DataFrame with same structure
+
+    return df[df[column].isin(countries)].copy()
 
 
 def filter_by_date_range(
@@ -41,14 +52,35 @@ def filter_by_date_range(
 
     Args:
         df: DataFrame to filter.
-        start_date: Start of date range (inclusive).
-        end_date: End of date range (inclusive).
-        date_column: Column name containing dates.
+        start_date: Start of date range (inclusive). If None, no lower bound.
+        end_date: End of date range (inclusive). If None, no upper bound.
+        date_column: Column name containing dates (default: 'date').
 
     Returns:
-        Filtered DataFrame.
+        Filtered DataFrame within the date range.
+
+    Example:
+        >>> from datetime import datetime
+        >>> start = datetime(2021, 1, 1)
+        >>> end = datetime(2021, 12, 31)
+        >>> filtered = filter_by_date_range(df, start, end)
     """
-    raise NotImplementedError("filter_by_date_range not yet implemented")
+    if date_column not in df.columns:
+        return df.head(0)
+
+    result = df.copy()
+
+    # Ensure date column is datetime
+    if not pd.api.types.is_datetime64_any_dtype(result[date_column]):
+        result[date_column] = pd.to_datetime(result[date_column])
+
+    if start_date is not None:
+        result = result[result[date_column] >= start_date]
+
+    if end_date is not None:
+        result = result[result[date_column] <= end_date]
+
+    return result
 
 
 def filter_by_value_range(
@@ -63,13 +95,28 @@ def filter_by_value_range(
     Args:
         df: DataFrame to filter.
         column: Column name to filter on.
-        min_val: Minimum value (inclusive).
-        max_val: Maximum value (inclusive).
+        min_val: Minimum value (inclusive). If None, no lower bound.
+        max_val: Maximum value (inclusive). If None, no upper bound.
 
     Returns:
-        Filtered DataFrame.
+        Filtered DataFrame with values within the range.
+
+    Example:
+        >>> filtered = filter_by_value_range(df, 'total_vaccinations',
+        ...                                   min_val=1000000, max_val=5000000)
     """
-    raise NotImplementedError("filter_by_value_range not yet implemented")
+    if column not in df.columns:
+        return df.head(0)
+
+    result = df.copy()
+
+    if min_val is not None:
+        result = result[result[column] >= min_val]
+
+    if max_val is not None:
+        result = result[result[column] <= max_val]
+
+    return result
 
 
 def filter_by_category(
@@ -81,12 +128,18 @@ def filter_by_category(
     Args:
         df: DataFrame to filter.
         column: Column name to filter on.
-        values: List of values to include.
+        values: List of category values to include.
 
     Returns:
-        Filtered DataFrame.
+        Filtered DataFrame containing only specified categories.
+
+    Example:
+        >>> filtered = filter_by_category(df, 'iso_code', ['GBR', 'USA', 'DEU'])
     """
-    raise NotImplementedError("filter_by_category not yet implemented")
+    if column not in df.columns:
+        return df.head(0)
+
+    return df[df[column].isin(values)].copy()
 
 
 def apply_filters(df: pd.DataFrame, criteria: dict) -> pd.DataFrame:
@@ -96,13 +149,44 @@ def apply_filters(df: pd.DataFrame, criteria: dict) -> pd.DataFrame:
     Args:
         df: DataFrame to filter.
         criteria: Dictionary with filter criteria:
-            - 'countries': List of countries
-            - 'start_date': Start date
-            - 'end_date': End date
-            - 'min_value': Minimum value for a column
-            - 'max_value': Maximum value for a column
+            - 'countries': List of countries to include
+            - 'start_date': Start date for date range
+            - 'end_date': End date for date range
+            - 'location_column': Column for country filter (default: 'location')
+            - 'date_column': Column for date filter (default: 'date')
 
     Returns:
-        Filtered DataFrame.
+        Filtered DataFrame matching all criteria.
+
+    Example:
+        >>> criteria = {
+        ...     'countries': ['United Kingdom', 'Germany'],
+        ...     'start_date': datetime(2021, 1, 1),
+        ...     'end_date': datetime(2021, 12, 31)
+        ... }
+        >>> filtered = apply_filters(df, criteria)
     """
-    raise NotImplementedError("apply_filters not yet implemented")
+    result = df.copy()
+
+    # Apply country filter
+    if "countries" in criteria and criteria["countries"]:
+        location_col = criteria.get("location_column", "location")
+        result = filter_by_country(result, criteria["countries"], location_col)
+
+    # Apply date range filter
+    start_date = criteria.get("start_date")
+    end_date = criteria.get("end_date")
+    if start_date is not None or end_date is not None:
+        date_col = criteria.get("date_column", "date")
+        result = filter_by_date_range(result, start_date, end_date, date_col)
+
+    # Apply value range filter
+    if "value_column" in criteria:
+        result = filter_by_value_range(
+            result,
+            criteria["value_column"],
+            criteria.get("min_value"),
+            criteria.get("max_value"),
+        )
+
+    return result

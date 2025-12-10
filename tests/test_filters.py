@@ -167,7 +167,7 @@ class TestFilterByValueRange:
         result = filter_by_value_range(
             vaccination_df, "total_vaccinations", min_val=1000000
         )
-        assert len(result) == 3  # Values >= 1000000
+        assert len(result) == 4  # Values >= 1000000: 1M, 5M, 2M, 1M
         assert all(result["total_vaccinations"] >= 1000000)
 
     def test_filter_max_value(self, vaccination_df):

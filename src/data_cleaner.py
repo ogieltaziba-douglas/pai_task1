@@ -4,11 +4,18 @@ Data Cleaner Module
 This module provides functions for cleaning and preprocessing
 public health vaccination data.
 
-Note: This file contains STUBS only. Implementation will follow after
-tests are verified to fail (TDD approach).
+Functions:
+    handle_missing_values: Handle NaN values with various strategies
+    convert_dates: Convert string columns to datetime
+    convert_numeric: Convert string columns to numeric
+    standardize_text: Standardize text formatting
+    remove_duplicates: Remove duplicate rows
+    validate_data_range: Validate values are within expected range
+    clean_dataframe: Apply comprehensive cleaning
 """
 
 import pandas as pd
+import numpy as np
 
 
 def handle_missing_values(
@@ -19,14 +26,50 @@ def handle_missing_values(
 
     Args:
         df: DataFrame to clean.
-        strategy: How to handle missing values ('drop', 'fill', 'mean', 'median').
+        strategy: How to handle missing values:
+            - 'drop': Remove rows with missing values
+            - 'fill': Fill with specified fill_value
+            - 'mean': Fill numeric columns with mean
+            - 'median': Fill numeric columns with median
         fill_value: Value to use when strategy is 'fill'.
         columns: Specific columns to apply to. If None, applies to all.
 
     Returns:
         DataFrame with missing values handled.
+
+    Example:
+        >>> df = handle_missing_values(df, strategy='fill', fill_value=0)
+        >>> df = handle_missing_values(df, strategy='mean')
     """
-    raise NotImplementedError("handle_missing_values not yet implemented")
+    # Work on a copy to avoid modifying original
+    result = df.copy()
+
+    # Determine which columns to process
+    target_columns = columns if columns else result.columns.tolist()
+
+    if strategy == "drop":
+        # Drop rows with any missing values in target columns
+        result = result.dropna(subset=target_columns)
+
+    elif strategy == "fill":
+        # Fill with specified value
+        for col in target_columns:
+            if col in result.columns:
+                result[col] = result[col].fillna(fill_value)
+
+    elif strategy == "mean":
+        # Fill numeric columns with mean
+        for col in target_columns:
+            if col in result.columns and pd.api.types.is_numeric_dtype(result[col]):
+                result[col] = result[col].fillna(result[col].mean())
+
+    elif strategy == "median":
+        # Fill numeric columns with median
+        for col in target_columns:
+            if col in result.columns and pd.api.types.is_numeric_dtype(result[col]):
+                result[col] = result[col].fillna(result[col].median())
+
+    return result
 
 
 def convert_dates(
@@ -38,13 +81,25 @@ def convert_dates(
     Args:
         df: DataFrame to process.
         columns: List of column names to convert.
-        format: Date format string (optional).
-        errors: How to handle errors ('raise', 'coerce', 'ignore').
+        format: Date format string (optional, e.g., '%Y-%m-%d').
+        errors: How to handle errors:
+            - 'raise': Raise exception on invalid date
+            - 'coerce': Set invalid dates to NaT
+            - 'ignore': Return original value
 
     Returns:
         DataFrame with converted date columns.
+
+    Example:
+        >>> df = convert_dates(df, columns=['date'], format='%Y-%m-%d')
     """
-    raise NotImplementedError("convert_dates not yet implemented")
+    result = df.copy()
+
+    for col in columns:
+        if col in result.columns:
+            result[col] = pd.to_datetime(result[col], format=format, errors=errors)
+
+    return result
 
 
 def convert_numeric(
@@ -56,27 +111,63 @@ def convert_numeric(
     Args:
         df: DataFrame to process.
         columns: List of column names to convert.
-        errors: How to handle errors ('raise', 'coerce', 'ignore').
+        errors: How to handle errors:
+            - 'raise': Raise exception on invalid value
+            - 'coerce': Set invalid values to NaN
+            - 'ignore': Return original value
 
     Returns:
         DataFrame with converted numeric columns.
+
+    Example:
+        >>> df = convert_numeric(df, columns=['cases', 'deaths'])
     """
-    raise NotImplementedError("convert_numeric not yet implemented")
+    result = df.copy()
+
+    for col in columns:
+        if col in result.columns:
+            result[col] = pd.to_numeric(result[col], errors=errors)
+
+    return result
 
 
 def standardize_text(df: pd.DataFrame, columns: list, case: str = None) -> pd.DataFrame:
     """
     Standardize text in string columns.
 
+    Strips whitespace and optionally converts case.
+
     Args:
         df: DataFrame to process.
         columns: List of column names to standardize.
-        case: Case transformation ('lower', 'upper', 'title', None).
+        case: Case transformation:
+            - 'lower': Convert to lowercase
+            - 'upper': Convert to uppercase
+            - 'title': Convert to title case
+            - None: No case conversion
 
     Returns:
         DataFrame with standardized text columns.
+
+    Example:
+        >>> df = standardize_text(df, columns=['location'], case='title')
     """
-    raise NotImplementedError("standardize_text not yet implemented")
+    result = df.copy()
+
+    for col in columns:
+        if col in result.columns and result[col].dtype == "object":
+            # Strip whitespace
+            result[col] = result[col].str.strip()
+
+            # Apply case transformation
+            if case == "lower":
+                result[col] = result[col].str.lower()
+            elif case == "upper":
+                result[col] = result[col].str.upper()
+            elif case == "title":
+                result[col] = result[col].str.title()
+
+    return result
 
 
 def remove_duplicates(
@@ -87,13 +178,20 @@ def remove_duplicates(
 
     Args:
         df: DataFrame to process.
-        subset: Column names to consider for duplicates.
-        keep: Which duplicate to keep ('first', 'last', False).
+        subset: Column names to consider for identifying duplicates.
+                If None, all columns are used.
+        keep: Which duplicate to keep:
+            - 'first': Keep first occurrence
+            - 'last': Keep last occurrence
+            - False: Drop all duplicates
 
     Returns:
         DataFrame with duplicates removed.
+
+    Example:
+        >>> df = remove_duplicates(df, subset=['location', 'date'])
     """
-    raise NotImplementedError("remove_duplicates not yet implemented")
+    return df.drop_duplicates(subset=subset, keep=keep)
 
 
 def validate_data_range(
@@ -105,13 +203,42 @@ def validate_data_range(
     Args:
         df: DataFrame to validate.
         column: Column name to check.
-        min_val: Minimum allowed value.
-        max_val: Maximum allowed value.
+        min_val: Minimum allowed value (inclusive).
+        max_val: Maximum allowed value (inclusive).
 
     Returns:
-        Dictionary with validation results.
+        Dictionary containing:
+            - valid: True if all values are within range
+            - out_of_range_count: Number of values outside range
+            - min_value: Actual minimum in the column
+            - max_value: Actual maximum in the column
+
+    Example:
+        >>> result = validate_data_range(df, 'cases', min_val=0, max_val=1000000)
+        >>> if not result['valid']:
+        >>>     print(f"Found {result['out_of_range_count']} invalid values")
     """
-    raise NotImplementedError("validate_data_range not yet implemented")
+    if column not in df.columns:
+        return {
+            "valid": False,
+            "out_of_range_count": 0,
+            "error": f"Column {column} not found",
+        }
+
+    col_data = df[column].dropna()
+
+    out_of_range = 0
+    if min_val is not None:
+        out_of_range += (col_data < min_val).sum()
+    if max_val is not None:
+        out_of_range += (col_data > max_val).sum()
+
+    return {
+        "valid": bool(out_of_range == 0),
+        "out_of_range_count": int(out_of_range),
+        "min_value": col_data.min() if len(col_data) > 0 else None,
+        "max_value": col_data.max() if len(col_data) > 0 else None,
+    }
 
 
 def clean_dataframe(
@@ -120,12 +247,32 @@ def clean_dataframe(
     """
     Apply comprehensive cleaning to a DataFrame.
 
+    Performs the following operations:
+    1. Remove duplicate rows
+    2. Optionally fill missing values in numeric columns
+
     Args:
         df: DataFrame to clean.
-        fill_missing: Whether to fill missing values.
-        fill_value: Value to fill missing with.
+        fill_missing: Whether to fill missing values in numeric columns.
+        fill_value: Value to fill missing with. If None, uses 0.
 
     Returns:
         Cleaned DataFrame.
+
+    Example:
+        >>> clean_df = clean_dataframe(df, fill_missing=True, fill_value=0)
     """
-    raise NotImplementedError("clean_dataframe not yet implemented")
+    result = df.copy()
+
+    # Remove duplicates
+    result = remove_duplicates(result)
+
+    # Handle missing values in numeric columns
+    if fill_missing:
+        numeric_cols = result.select_dtypes(include=[np.number]).columns.tolist()
+        fill_val = fill_value if fill_value is not None else 0
+        result = handle_missing_values(
+            result, strategy="fill", fill_value=fill_val, columns=numeric_cols
+        )
+
+    return result

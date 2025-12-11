@@ -103,8 +103,8 @@ def calculate_trend(df: pd.DataFrame, date_column: str, value_column: str) -> di
     Returns:
         Dictionary containing:
             - direction: 'increasing', 'decreasing', or 'stable'
-            - start_value: First value in series
-            - end_value: Last value in series
+            - start_value: First non-null value in series
+            - end_value: Last non-null value in series
             - total_change: Absolute change (end - start)
             - percent_change: Percentage change
 
@@ -115,9 +115,21 @@ def calculate_trend(df: pd.DataFrame, date_column: str, value_column: str) -> di
     # Sort by date
     sorted_df = df.sort_values(date_column).copy()
 
-    # Get start and end values
-    start_value = sorted_df[value_column].iloc[0]
-    end_value = sorted_df[value_column].iloc[-1]
+    # Drop NaN values to get meaningful start/end
+    valid_data = sorted_df[value_column].dropna()
+
+    if len(valid_data) == 0:
+        return {
+            "direction": "unknown",
+            "start_value": 0.0,
+            "end_value": 0.0,
+            "total_change": 0.0,
+            "percent_change": 0.0,
+        }
+
+    # Get first and last non-null values
+    start_value = valid_data.iloc[0]
+    end_value = valid_data.iloc[-1]
 
     # Calculate change
     total_change = end_value - start_value

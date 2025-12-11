@@ -1,13 +1,31 @@
 """
-Dashboard Module - Stubs
+Dashboard Module
 
-This module will contain all business logic and data operations
+This module contains all business logic and data operations
 for the Public Health Data Insights Dashboard.
 
-TODO: Implement all functions
+Classes:
+    DashboardState: Holds application state (data, connection)
+
+Functions:
+    get_countries_only: Filter to actual countries
+    load_data: Load CSV data
+    get_summary: Generate data summary
+    get_statistics: Calculate column statistics
+    get_trend_analysis: Calculate trend for a country
+    filter_data_by_country: Filter by country names
+    filter_data_by_continent: Filter by continent
+    export_data: Export to CSV
 """
 
 import pandas as pd
+from typing import Optional, List
+
+from src.data_loader import load_csv, get_data_info
+from src.data_cleaner import convert_dates
+from src.filters import filter_by_country
+from src.summaries import calculate_statistics, calculate_trend, get_summary_report
+from src.constants import AGGREGATE_KEYWORDS
 
 
 class DashboardState:
@@ -20,8 +38,9 @@ class DashboardState:
     """
 
     def __init__(self):
-        """Initialize dashboard state."""
-        raise NotImplementedError("DashboardState.__init__ not implemented")
+        """Initialize dashboard state with empty data."""
+        self.current_data: Optional[pd.DataFrame] = None
+        self.db_connection = None
 
 
 def get_countries_only(df: pd.DataFrame) -> pd.DataFrame:
@@ -34,7 +53,11 @@ def get_countries_only(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with aggregate entries removed
     """
-    raise NotImplementedError("get_countries_only not implemented")
+    if df is None or df.empty:
+        return df
+
+    pattern = "|".join(AGGREGATE_KEYWORDS)
+    return df[~df["location"].str.contains(pattern, case=False, na=False)]
 
 
 def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") -> dict:
@@ -48,7 +71,22 @@ def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") ->
     Returns:
         Dictionary with 'success' key and optional 'error' message
     """
-    raise NotImplementedError("load_data not implemented")
+    try:
+        data = load_csv(filepath)
+        data = convert_dates(data, ["date"], errors="coerce")
+        state.current_data = data
+
+        info = get_data_info(data)
+        return {
+            "success": True,
+            "row_count": info["row_count"],
+            "column_count": info["column_count"],
+            "columns": info["columns"],
+        }
+    except FileNotFoundError:
+        return {"success": False, "error": f"File not found: {filepath}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def get_summary(state: DashboardState) -> dict:
@@ -61,7 +99,18 @@ def get_summary(state: DashboardState) -> dict:
     Returns:
         Dictionary with summary information
     """
-    raise NotImplementedError("get_summary not implemented")
+    if state.current_data is None:
+        return {"error": "No data loaded"}
+
+    report = get_summary_report(
+        state.current_data, date_column="date", location_column="location"
+    )
+
+    return {
+        "total_records": report["total_records"],
+        "date_range": report.get("date_range"),
+        "unique_locations": report.get("unique_locations"),
+    }
 
 
 def get_statistics(state: DashboardState, column: str) -> dict:
@@ -75,7 +124,14 @@ def get_statistics(state: DashboardState, column: str) -> dict:
     Returns:
         Dictionary with statistical measures
     """
-    raise NotImplementedError("get_statistics not implemented")
+    if state.current_data is None:
+        return {"error": "No data loaded"}
+
+    if column not in state.current_data.columns:
+        return {"error": f"Column not found: {column}"}
+
+    stats = calculate_statistics(state.current_data, column)
+    return stats
 
 
 def get_trend_analysis(state: DashboardState, country: str) -> dict:
@@ -89,7 +145,35 @@ def get_trend_analysis(state: DashboardState, country: str) -> dict:
     Returns:
         Dictionary with trend information
     """
-    raise NotImplementedError("get_trend_analysis not implemented")
+    if state.current_data is None:
+        return {"error": "No data loaded"}
+
+    country_data = filter_by_country(state.current_data, [country])
+
+    if country_data.empty:
+        return {"error": f"No data found for: {country}"}
+
+    country_data = country_data.sort_values("date")
+
+    # Calculate trend for daily_vaccinations
+    if "daily_vaccinations" in country_data.columns:
+        trend = calculate_trend(country_data, "date", "daily_vaccinations")
+    else:
+        trend = {"direction": "unknown", "start_value": 0, "end_value": 0}
+
+    return {
+        "country": country,
+        "date_range": {
+            "start": country_data["date"].min(),
+            "end": country_data["date"].max(),
+        },
+        "total_records": len(country_data),
+        "direction": trend["direction"],
+        "start_value": trend["start_value"],
+        "end_value": trend["end_value"],
+        "total_change": trend.get("total_change", 0),
+        "percent_change": trend.get("percent_change", 0),
+    }
 
 
 def filter_data_by_country(state: DashboardState, countries: list) -> pd.DataFrame:
@@ -103,7 +187,10 @@ def filter_data_by_country(state: DashboardState, countries: list) -> pd.DataFra
     Returns:
         Filtered DataFrame
     """
-    raise NotImplementedError("filter_data_by_country not implemented")
+    if state.current_data is None:
+        return pd.DataFrame()
+
+    return filter_by_country(state.current_data, countries)
 
 
 def filter_data_by_continent(continent: str) -> pd.DataFrame:
@@ -116,7 +203,12 @@ def filter_data_by_continent(continent: str) -> pd.DataFrame:
     Returns:
         Filtered DataFrame
     """
-    raise NotImplementedError("filter_data_by_continent not implemented")
+    try:
+        data = load_csv("data/vaccinations.csv")
+        data = convert_dates(data, ["date"], errors="coerce")
+        return filter_by_country(data, [continent])
+    except Exception:
+        return pd.DataFrame()
 
 
 def export_data(state: DashboardState, filepath: str) -> dict:
@@ -130,4 +222,15 @@ def export_data(state: DashboardState, filepath: str) -> dict:
     Returns:
         Dictionary with 'success' key and optional 'error' message
     """
-    raise NotImplementedError("export_data not implemented")
+    if state.current_data is None:
+        return {"success": False, "error": "No data loaded"}
+
+    try:
+        state.current_data.to_csv(filepath, index=False)
+        return {
+            "success": True,
+            "filepath": filepath,
+            "records": len(state.current_data),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}

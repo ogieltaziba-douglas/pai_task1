@@ -69,11 +69,25 @@ def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") ->
         filepath: Path to CSV file
 
     Returns:
-        Dictionary with 'success' key and optional 'error' message
+        Dictionary with 'success' key, data info, and missing value stats
     """
     try:
         data = load_csv(filepath)
         data = convert_dates(data, ["date"], errors="coerce")
+
+        # Count missing values before filling
+        missing_before = data.isna().sum().sum()
+
+        # Apply forward fill for numeric columns (per location)
+        # This is appropriate for cumulative columns like total_vaccinations
+        numeric_cols = data.select_dtypes(include=["number"]).columns
+        data = data.sort_values(["location", "date"])
+        data[numeric_cols] = data.groupby("location")[numeric_cols].ffill()
+
+        # Count remaining missing values
+        missing_after = data.isna().sum().sum()
+        filled_count = missing_before - missing_after
+
         state.current_data = data
 
         info = get_data_info(data)
@@ -82,6 +96,8 @@ def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") ->
             "row_count": info["row_count"],
             "column_count": info["column_count"],
             "columns": info["columns"],
+            "missing_filled": int(filled_count),
+            "missing_remaining": int(missing_after),
         }
     except FileNotFoundError:
         return {"success": False, "error": f"File not found: {filepath}"}

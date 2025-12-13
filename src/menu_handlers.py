@@ -40,7 +40,7 @@ from src.constants import (
     KEY_COUNTRIES,
     COLUMN_DESCRIPTIONS,
 )
-from src.filters import filter_by_country, DataFilter
+from src.filters import DataFilter
 from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
@@ -77,14 +77,13 @@ def prompt_date_filter(data):
         Filtered DataFrame (or original if no filter applied)
     """
     from src.cli import parse_date_input
-    from src.filters import filter_by_date_range
 
     print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
     start = parse_date_input(get_user_input("Start date"))
     end = parse_date_input(get_user_input("End date"))
 
     if start is not None or end is not None:
-        filtered = filter_by_date_range(data, start, end)
+        filtered = DataFilter(data).by_date_range(start, end).result()
         print(f"\n✓ Narrowed to {len(filtered):,} records")
         return filtered
 
@@ -345,7 +344,7 @@ def handle_filter_income(state):
     print("-" * 62)
 
     for group in INCOME_GROUPS:
-        group_data = filter_by_country(fresh_data, [group])
+        group_data = DataFilter(fresh_data).by_country(group).result()
         if not group_data.empty:
             latest = group_data.sort_values("date").iloc[-1]
             total = latest.get("total_vaccinations", 0)
@@ -367,7 +366,6 @@ def handle_filter_date(state):
         return
 
     from src.cli import parse_date_input
-    from src.filters import filter_by_date_range
 
     # Show current data range
     current_min = state.current_data["date"].min()
@@ -388,7 +386,7 @@ def handle_filter_date(state):
         print("\n✗ No valid dates entered.")
         return
 
-    filtered = filter_by_date_range(state.current_data, start, end)
+    filtered = DataFilter(state.current_data).by_date_range(start, end).result()
 
     # Calculate what was removed
     removed = original_count - len(filtered)

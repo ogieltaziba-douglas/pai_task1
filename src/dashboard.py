@@ -21,9 +21,10 @@ Functions:
 import pandas as pd
 from typing import Optional
 
+
 from src.data_loader import load_csv, get_data_info
 from src.data_cleaner import DataCleaner
-from src.filters import filter_by_country
+from src.filters import DataFilter
 from src.summaries import calculate_statistics, calculate_trend, get_summary_report
 from src.constants import AGGREGATE_KEYWORDS
 
@@ -273,7 +274,7 @@ def get_trend_analysis(state: DashboardState, country: str) -> dict:
     if state.current_data is None:
         return {"error": "No data loaded"}
 
-    country_data = filter_by_country(state.current_data, [country])
+    country_data = DataFilter(state.current_data).by_country(country).result()
 
     if country_data.empty:
         return {"error": f"No data found for: {country}"}
@@ -315,7 +316,7 @@ def filter_data_by_country(state: DashboardState, countries: list) -> pd.DataFra
     if state.current_data is None:
         return pd.DataFrame()
 
-    return filter_by_country(state.current_data, countries)
+    return DataFilter(state.current_data).by_country(countries).result()
 
 
 def filter_data_by_continent(continent: str) -> pd.DataFrame:
@@ -331,7 +332,7 @@ def filter_data_by_continent(continent: str) -> pd.DataFrame:
     try:
         data = load_csv("data/vaccinations.csv")
         data = DataCleaner(data).convert_dates(["date"]).result()
-        return filter_by_country(data, [continent])
+        return DataFilter(data).by_country(continent).result()
     except Exception:
         return pd.DataFrame()
 

@@ -19,7 +19,6 @@ from src.summaries import (
     count_by_category,
     calculate_trend,
     group_summary,
-    get_top_n,
     get_summary_report,
 )
 
@@ -240,32 +239,6 @@ class TestGroupSummary:
 
 
 # ============================================================================
-# Tests for get_top_n()
-# ============================================================================
-
-
-class TestGetTopN:
-    """Tests for getting top N values."""
-
-    def test_get_top_3(self, vaccination_df):
-        """Test getting top 3 by vaccination count."""
-        result = get_top_n(vaccination_df, "total_vaccinations", n=3)
-        assert len(result) == 3
-        assert result.iloc[0]["total_vaccinations"] == 5000000
-
-    def test_get_bottom_3(self, vaccination_df):
-        """Test getting bottom 3 by vaccination count."""
-        result = get_top_n(vaccination_df, "total_vaccinations", n=3, ascending=True)
-        assert len(result) == 3
-        assert result.iloc[0]["total_vaccinations"] == 500000
-
-    def test_returns_dataframe(self, vaccination_df):
-        """Test that function returns a DataFrame."""
-        result = get_top_n(vaccination_df, "total_vaccinations", n=3)
-        assert isinstance(result, pd.DataFrame)
-
-
-# ============================================================================
 # Tests for get_summary_report()
 # ============================================================================
 
@@ -319,7 +292,3 @@ class TestSummariesIntegration:
             vaccination_df, "location", "total_vaccinations", "sum"
         )
         assert country_totals["United States"] == 5000000
-
-        # Get top performers
-        top_records = get_top_n(vaccination_df, "total_vaccinations", n=2)
-        assert len(top_records) == 2

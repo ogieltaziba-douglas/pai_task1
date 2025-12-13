@@ -9,12 +9,10 @@ Functions:
     count_by_category: Count occurrences by category
     calculate_trend: Calculate trend information over time
     group_summary: Calculate grouped aggregations
-    get_top_n: Get top N records by a column
     get_summary_report: Generate comprehensive summary report
 """
 
 import pandas as pd
-import numpy as np
 from typing import Optional
 
 
@@ -185,28 +183,6 @@ def group_summary(
         return grouped.count()
     else:
         raise ValueError(f"Unknown aggregation function: {agg_func}")
-
-
-def get_top_n(
-    df: pd.DataFrame, column: str, n: int = 10, ascending: bool = False
-) -> pd.DataFrame:
-    """
-    Get top N records by a column value.
-
-    Args:
-        df: DataFrame to filter.
-        column: Column to sort by.
-        n: Number of records to return (default: 10).
-        ascending: If True, get bottom N instead (default: False).
-
-    Returns:
-        DataFrame with top N records.
-
-    Example:
-        >>> top_countries = get_top_n(df, 'total_vaccinations', n=10)
-        >>> print(top_countries)
-    """
-    return df.nlargest(n, column) if not ascending else df.nsmallest(n, column)
 
 
 def get_summary_report(

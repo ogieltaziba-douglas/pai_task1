@@ -1,13 +1,19 @@
 """
-Activity Logger Module - Stubs
+Activity Logger Module
 
-This module will handle logging of user activities and actions
+This module handles logging of user activities and actions
 in the Public Health Data Insights Dashboard.
 
-TODO: Implement all logger functions
+Functions:
+    log_activity: Log a user activity to file and session
+    get_log_entries: Retrieve log entries from file
+    clear_log: Clear all log entries
+    get_session_log: Get in-memory session log
 """
 
-from typing import List, Optional
+import os
+from datetime import datetime
+from typing import List
 
 
 # Session log for current session (in-memory)
@@ -25,7 +31,26 @@ def log_activity(
         details: Description of the activity
         log_file: Path to log file
     """
-    raise NotImplementedError("log_activity not implemented")
+    global _session_log
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] {action}: {details}"
+
+    # Add to session log
+    _session_log.append(entry)
+
+    # Ensure directory exists
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+
+    # Append to log file
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(entry + "\n")
+    except Exception:
+        # If we can't write to file, at least we have session log
+        pass
 
 
 def get_log_entries(log_file: str = "logs/activity.log") -> List[str]:
@@ -38,7 +63,15 @@ def get_log_entries(log_file: str = "logs/activity.log") -> List[str]:
     Returns:
         List of log entry strings
     """
-    raise NotImplementedError("get_log_entries not implemented")
+    if not os.path.exists(log_file):
+        return []
+
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            entries = [line.strip() for line in f.readlines() if line.strip()]
+        return entries
+    except Exception:
+        return []
 
 
 def clear_log(log_file: str = "logs/activity.log") -> None:
@@ -48,7 +81,17 @@ def clear_log(log_file: str = "logs/activity.log") -> None:
     Args:
         log_file: Path to log file
     """
-    raise NotImplementedError("clear_log not implemented")
+    global _session_log
+
+    # Clear session log
+    _session_log = []
+
+    # Clear file
+    try:
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write("")
+    except Exception:
+        pass
 
 
 def get_session_log() -> List[str]:
@@ -58,4 +101,4 @@ def get_session_log() -> List[str]:
     Returns:
         List of log entry strings for current session
     """
-    raise NotImplementedError("get_session_log not implemented")
+    return _session_log.copy()

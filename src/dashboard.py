@@ -30,7 +30,7 @@ from src.constants import AGGREGATE_KEYWORDS
 
 class DashboardState:
     """
-    Holds the application state.
+    Holds the application state (legacy, kept for backwards compatibility).
 
     Attributes:
         current_data: Currently loaded DataFrame
@@ -41,6 +41,70 @@ class DashboardState:
         """Initialize dashboard state with empty data."""
         self.current_data: Optional[pd.DataFrame] = None
         self.db_connection = None
+
+
+class Dashboard:
+    """
+    Dashboard class with OOP encapsulation.
+    """
+
+    def __init__(self):
+        """Initialize Dashboard with no data."""
+        raise NotImplementedError("Dashboard.__init__ not implemented")
+
+    def load(self, filepath: str) -> dict:
+        """
+        Load data from CSV file.
+
+        Args:
+            filepath: Path to CSV file
+
+        Returns:
+            Dict with success status and metadata
+        """
+        raise NotImplementedError("Dashboard.load not implemented")
+
+    @property
+    def data(self) -> Optional[pd.DataFrame]:
+        """Get current data (returns copy for encapsulation)."""
+        raise NotImplementedError("Dashboard.data not implemented")
+
+    @property
+    def row_count(self) -> int:
+        """Get number of rows in current data."""
+        raise NotImplementedError("Dashboard.row_count not implemented")
+
+    @property
+    def is_loaded(self) -> bool:
+        """Check if data is loaded."""
+        raise NotImplementedError("Dashboard.is_loaded not implemented")
+
+    def summary(self) -> dict:
+        """
+        Get summary of current data.
+
+        Returns:
+            Dict with summary statistics
+        """
+        raise NotImplementedError("Dashboard.summary not implemented")
+
+    def filter(self):
+        """
+        Get DataFilter for current data.
+
+        Returns:
+            DataFilter instance for method chaining
+        """
+        raise NotImplementedError("Dashboard.filter not implemented")
+
+    def set_data(self, data: pd.DataFrame) -> None:
+        """
+        Set current data (makes a copy).
+
+        Args:
+            data: DataFrame to set as current data
+        """
+        raise NotImplementedError("Dashboard.set_data not implemented")
 
 
 def get_countries_only(df: pd.DataFrame) -> pd.DataFrame:

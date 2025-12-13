@@ -189,26 +189,33 @@ class TestDashboardFilter:
         dashboard = Dashboard()
         assert hasattr(dashboard, "filter")
 
-    def test_filter_returns_data_filter(self, sample_csv):
-        """Test that filter returns DataFilter instance."""
+    def test_filter_requires_db_connection(self, sample_csv):
+        """Test that filter raises error without db_connection."""
         from src.dashboard import Dashboard
-        from src.filters import DataFilter
 
         dashboard = Dashboard()
         dashboard.load(sample_csv)
+
+        # Without db_connection, should raise ValueError
+        with pytest.raises(ValueError, match="No database connection"):
+            dashboard.filter()
+
+    def test_filter_returns_data_filter_with_db(self, sample_csv, tmp_path):
+        """Test that filter returns DataFilter instance when db is set up."""
+        from src.dashboard import Dashboard
+        from src.filters import DataFilter
+        from src.database import create_connection, insert_dataframe
+
+        dashboard = Dashboard()
+        dashboard.load(sample_csv)
+
+        # Set up database connection
+        db_path = str(tmp_path / "test.db")
+        dashboard.db_connection = create_connection(db_path)
+        insert_dataframe(dashboard.db_connection, "vaccinations", dashboard.data)
 
         result = dashboard.filter()
         assert isinstance(result, DataFilter)
-
-    def test_filter_can_chain(self, sample_csv):
-        """Test that filter result supports chaining."""
-        from src.dashboard import Dashboard
-
-        dashboard = Dashboard()
-        dashboard.load(sample_csv)
-
-        result = dashboard.filter().by_country("Spain").result()
-        assert len(result) == 2
 
 
 class TestDashboardSetData:

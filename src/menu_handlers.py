@@ -30,21 +30,20 @@ from src.dashboard import (
     get_summary,
     get_statistics,
     get_trend_analysis,
-    filter_data_by_country,
     filter_data_by_continent,
-    get_countries_only,
 )
 from src.constants import (
     CONTINENTS,
     INCOME_GROUPS,
     KEY_COUNTRIES,
     COLUMN_DESCRIPTIONS,
+    AGGREGATE_KEYWORDS,
 )
 from src.filters import DataFilter
 from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
-from src.database import create_connection, insert_dataframe, SQLDataFilter
+from src.database import create_connection, insert_dataframe
 from src.logger import ActivityLogger
 
 # Global logger instance (OOP)
@@ -83,9 +82,14 @@ def prompt_date_filter(data):
     end = parse_date_input(get_user_input("End date"))
 
     if start is not None or end is not None:
-        filtered = DataFilter(data).by_date_range(start, end).result()
-        print(f"\n✓ Narrowed to {len(filtered):,} records")
-        return filtered
+        # Filter directly on DataFrame (already in memory)
+        result = data.copy()
+        if start is not None:
+            result = result[result["date"] >= start]
+        if end is not None:
+            result = result[result["date"] <= end]
+        print(f"\n✓ Narrowed to {len(result):,} records")
+        return result
 
     return data
 
@@ -165,19 +169,16 @@ def handle_load_data(state):
                     f"    • {result['missing_remaining']:,} values still missing (start of series)"
                 )
 
-        load_to_db = get_user_input("Load data into database? (y/n)").lower()
-        if load_to_db == "y":
-            try:
-                # Store connection for SQL filtering
-                state.db_connection = create_connection("data/vaccinations.db")
-                rows = insert_dataframe(
-                    state.db_connection, "vaccinations", state.current_data
-                )
-                print(f"\n✓ Inserted {rows:,} records into database")
-                print("  SQL filters are now available.")
-                logger.log("LOAD_DB", f"Inserted {rows:,} records into database")
-            except Exception as e:
-                print(f"\n✗ Error: {e}")
+        # Always load to SQLite for SQL filtering
+        try:
+            state.db_connection = create_connection("data/vaccinations.db")
+            rows = insert_dataframe(
+                state.db_connection, "vaccinations", state.current_data
+            )
+            print(f"\n✓ Database: Inserted {rows:,} records into SQLite")
+            logger.log("LOAD_DB", f"Inserted {rows:,} records into database")
+        except Exception as e:
+            print(f"\n✗ Database Error: {e}")
     else:
         print(f"\n✗ Error: {result['error']}")
 
@@ -202,8 +203,11 @@ def handle_view_summary(state):
         print(f"  Unique Locations: {summary['unique_locations']}")
     print("=" * 40)
 
-    # Show top countries
-    countries_only = get_countries_only(state.current_data)
+    # Show top countries (filter out aggregates)
+    pattern = "|".join(AGGREGATE_KEYWORDS)
+    countries_only = state.current_data[
+        ~state.current_data["location"].str.contains(pattern, case=False, na=False)
+    ]
     print("\nRecords by Country (Top 10):")
     country_counts = count_by_category(countries_only, "location")
     print(country_counts.head(10).to_string())
@@ -211,7 +215,7 @@ def handle_view_summary(state):
 
 def handle_filter_country(state):
     """Handle country filter with optional date range."""
-    if state.current_data is None:
+    if state.current_data is None or state.db_connection is None:
         print("\n✗ No data loaded. Please load data first (Option 1).")
         return
 
@@ -220,18 +224,11 @@ def handle_filter_country(state):
         print("\n✗ No selection entered.")
         return
 
-    # Use SQLDataFilter if database is available, else fallback to DataFilter
-    if state.db_connection is not None:
-        # SQL-based filtering (LO3)
-        sql_filter = SQLDataFilter(state.db_connection).by_country(country)
-        filtered = sql_filter.result()
-        record_count = sql_filter.count
-        print(f"\n  [Using SQL filter: {sql_filter.query[:60]}...]")
-    else:
-        # Pandas-based filtering
-        data_filter = DataFilter(state.current_data).by_country(country)
-        filtered = data_filter.result()
-        record_count = data_filter.count
+    # SQL-based filtering
+    data_filter = DataFilter(state.db_connection).by_country(country)
+    filtered = data_filter.result()
+    record_count = data_filter.count
+    print(f"\n  [SQL: {data_filter.query[:60]}...]")
 
     if filtered.empty:
         print(f"\n✗ No data found for: {country}")
@@ -288,7 +285,7 @@ def handle_filter_continent(state):
         print("\n✗ No selection entered.")
         return
 
-    filtered = filter_data_by_continent(continent)
+    filtered = filter_data_by_continent(state, continent)
 
     if filtered.empty:
         print(f"\n✗ No data found for: {continent}")
@@ -324,19 +321,13 @@ def handle_filter_continent(state):
 
 def handle_filter_income(state):
     """Handle income group comparison."""
+    if state.db_connection is None:
+        print("\n✗ No data loaded. Please load data first (Option 1).")
+        return
+
     print("\n" + "=" * 60)
     print("  Income Group Vaccination Comparison")
     print("=" * 60)
-
-    from src.data_loader import load_csv
-    from src.data_cleaner import DataCleaner
-
-    try:
-        fresh_data = load_csv("data/vaccinations.csv")
-        fresh_data = DataCleaner(fresh_data).convert_dates(["date"]).result()
-    except Exception as e:
-        print(f"\n✗ Error: {e}")
-        return
 
     print("\nComparing latest vaccination rates across income groups...\n")
 
@@ -344,7 +335,7 @@ def handle_filter_income(state):
     print("-" * 62)
 
     for group in INCOME_GROUPS:
-        group_data = DataFilter(fresh_data).by_country(group).result()
+        group_data = DataFilter(state.db_connection).by_country(group).result()
         if not group_data.empty:
             latest = group_data.sort_values("date").iloc[-1]
             total = latest.get("total_vaccinations", 0)
@@ -361,7 +352,7 @@ def handle_filter_income(state):
 
 def handle_filter_date(state):
     """Handle date range filter."""
-    if state.current_data is None:
+    if state.current_data is None or state.db_connection is None:
         print("\n✗ No data loaded. Please load data first (Option 1).")
         return
 
@@ -386,7 +377,10 @@ def handle_filter_date(state):
         print("\n✗ No valid dates entered.")
         return
 
-    filtered = DataFilter(state.current_data).by_date_range(start, end).result()
+    # SQL-based filtering
+    data_filter = DataFilter(state.db_connection).by_date_range(start, end)
+    filtered = data_filter.result()
+    print(f"\n  [SQL: {data_filter.query[:60]}...]")
 
     # Calculate what was removed
     removed = original_count - len(filtered)
@@ -495,7 +489,9 @@ def handle_trends(state):
         return
 
     # Get country data for peak analysis
-    country_data = filter_data_by_country(state, [country]).sort_values("date")
+    country_data = (
+        DataFilter(state.db_connection).by_country(country).result().sort_values("date")
+    )
 
     print(f"\n{'=' * 55}")
     print(f"  {country} - Vaccination Trend Analysis")
@@ -566,7 +562,11 @@ def handle_charts(state):
         from src.visualizations import create_bar_chart
         from src.summaries import group_summary
 
-        countries_only = get_countries_only(state.current_data)
+        # Filter out aggregates
+        pattern = "|".join(AGGREGATE_KEYWORDS)
+        countries_only = state.current_data[
+            ~state.current_data["location"].str.contains(pattern, case=False, na=False)
+        ]
         country_totals = group_summary(
             countries_only, "location", "total_vaccinations", "max"
         )
@@ -616,10 +616,9 @@ def handle_export(state):
         if choice == "2":
             country = display_country_menu()
             if country:
-                # Use DataFilter class (OOP)
-                data_to_export = (
-                    DataFilter(state.current_data).by_country(country).result()
-                )
+                # SQL-based filtering
+                data_filter = DataFilter(state.db_connection).by_country(country)
+                data_to_export = data_filter.result()
                 print(
                     f"\n  ✓ Filtered to {len(data_to_export):,} records for {country}"
                 )

@@ -42,44 +42,6 @@ class TestDashboardState:
         assert state.db_connection is None
 
 
-class TestGetCountriesOnly:
-    """Tests for get_countries_only function."""
-
-    def test_get_countries_only_exists(self):
-        """Test that get_countries_only function is defined."""
-        from src.dashboard import get_countries_only
-
-        assert get_countries_only is not None
-
-    def test_get_countries_only_filters_world(self):
-        """Test that World is filtered out."""
-        from src.dashboard import get_countries_only
-
-        df = pd.DataFrame(
-            {
-                "location": ["United Kingdom", "World", "Germany"],
-                "value": [100, 1000, 200],
-            }
-        )
-        result = get_countries_only(df)
-        assert "World" not in result["location"].values
-        assert len(result) == 2
-
-    def test_get_countries_only_filters_income_groups(self):
-        """Test that income groups are filtered out."""
-        from src.dashboard import get_countries_only
-
-        df = pd.DataFrame(
-            {
-                "location": ["Brazil", "High income", "Low income"],
-                "value": [100, 1000, 500],
-            }
-        )
-        result = get_countries_only(df)
-        assert len(result) == 1
-        assert "Brazil" in result["location"].values
-
-
 class TestLoadData:
     """Tests for load_data function."""
 
@@ -219,9 +181,10 @@ class TestGetTrendAnalysis:
         result = get_trend_analysis(state, "United Kingdom")
         assert isinstance(result, dict)
 
-    def test_get_trend_analysis_has_direction(self):
+    def test_get_trend_analysis_has_direction(self, tmp_path):
         """Test that trend analysis includes direction."""
         from src.dashboard import get_trend_analysis, DashboardState
+        from src.database import create_connection, insert_dataframe
 
         state = DashboardState()
         state.current_data = pd.DataFrame(
@@ -231,57 +194,10 @@ class TestGetTrendAnalysis:
                 "daily_vaccinations": [100, 200, 300],
             }
         )
+        # Set up database connection
+        db_path = str(tmp_path / "test.db")
+        state.db_connection = create_connection(db_path)
+        insert_dataframe(state.db_connection, "vaccinations", state.current_data)
+
         result = get_trend_analysis(state, "UK")
         assert "direction" in result
-
-
-class TestFilterDataByCountry:
-    """Tests for filter_data_by_country function."""
-
-    def test_filter_data_by_country_exists(self):
-        """Test that filter_data_by_country function is defined."""
-        from src.dashboard import filter_data_by_country
-
-        assert filter_data_by_country is not None
-
-    def test_filter_data_by_country_returns_dataframe(self):
-        """Test that filter_data_by_country returns a DataFrame."""
-        from src.dashboard import filter_data_by_country, DashboardState
-
-        state = DashboardState()
-        state.current_data = pd.DataFrame(
-            {"location": ["UK", "Germany", "UK"], "value": [100, 200, 150]}
-        )
-        result = filter_data_by_country(state, ["UK"])
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) == 2
-
-
-class TestExportData:
-    """Tests for export_data function."""
-
-    def test_export_data_exists(self):
-        """Test that export_data function is defined."""
-        from src.dashboard import export_data
-
-        assert export_data is not None
-
-    def test_export_data_returns_result(self):
-        """Test that export_data returns a result dictionary."""
-        from src.dashboard import export_data, DashboardState
-        import tempfile
-        import os
-
-        state = DashboardState()
-        state.current_data = pd.DataFrame({"location": ["UK"], "value": [100]})
-
-        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
-            filepath = f.name
-
-        try:
-            result = export_data(state, filepath)
-            assert isinstance(result, dict)
-            assert "success" in result
-        finally:
-            if os.path.exists(filepath):
-                os.remove(filepath)

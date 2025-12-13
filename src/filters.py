@@ -2,149 +2,158 @@
 Filters Module
 
 This module provides the DataFilter class for filtering public health
-vaccination data using OOP method chaining.
+vaccination data using SQL queries.
 
 Classes:
-    DataFilter: OOP class with fluent interface for data filtering
+    DataFilter: OOP class with fluent interface for SQL-based filtering
 """
 
+import sqlite3
 import pandas as pd
-from datetime import datetime
 from typing import Optional
 
 
 class DataFilter:
     """
-    Fluent data filter with method chaining support.
-
-    OOP Principles Demonstrated:
-    - Method chaining (fluent interface)
-    - Encapsulation (private _data attribute)
-    - Immutability (methods return new instances)
+    SQL-based data filter with method chaining support.
 
     Example:
-        >>> result = (DataFilter(df)
+        >>> result = (DataFilter(conn)
         ...           .by_country('Spain')
-        ...           .by_date_range(start=datetime(2021, 1, 1))
+        ...           .by_date_range(start='2021-01-01')
         ...           .result())
     """
 
-    def __init__(self, data: pd.DataFrame):
+    def __init__(
+        self,
+        connection: sqlite3.Connection,
+        table: str = "vaccinations",
+        where_clauses: list = None,
+    ):
         """
-        Initialize DataFilter with a DataFrame.
+        Initialize DataFilter with database connection.
 
         Args:
-            data: DataFrame to filter
+            connection: SQLite database connection
+            table: Table name to query (default: 'vaccinations')
+            where_clauses: List of WHERE clause conditions (internal use)
         """
-        self._data = data.copy()
+        self._conn = connection
+        self._table = table
+        self._where_clauses = where_clauses if where_clauses else []
 
     def by_country(self, countries, column: str = "location") -> "DataFilter":
         """
-        Filter by country.
+        Filter by country using SQL WHERE clause.
 
         Args:
             countries: Country name (str) or list of countries
             column: Column name to filter on (default: 'location')
 
         Returns:
-            New DataFilter instance with filtered data
+            New DataFilter with added WHERE clause
         """
-        # Handle both single country and list
+        # Handle single country or list
         if isinstance(countries, str):
             countries = [countries]
 
-        if column in self._data.columns:
-            filtered = self._data[self._data[column].isin(countries)].copy()
-        else:
-            filtered = self._data.copy()
+        # Build SQL IN clause
+        placeholders = ", ".join([f"'{c}'" for c in countries])
+        clause = f"{column} IN ({placeholders})"
 
-        return DataFilter(filtered)
+        # Return new instance with added clause (immutability)
+        new_clauses = self._where_clauses + [clause]
+        return DataFilter(self._conn, self._table, new_clauses)
 
     def by_date_range(
         self,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
         date_column: str = "date",
     ) -> "DataFilter":
         """
-        Filter by date range.
+        Filter by date range using SQL WHERE clause.
 
         Args:
-            start: Start date (inclusive)
-            end: End date (inclusive)
+            start: Start date string (inclusive)
+            end: End date string (inclusive)
             date_column: Column name for dates (default: 'date')
 
         Returns:
-            New DataFilter instance with filtered data
+            New DataFilter with added WHERE clause
         """
-        result = self._data.copy()
+        new_clauses = self._where_clauses.copy()
 
-        if date_column in result.columns:
-            if start is not None:
-                result = result[result[date_column] >= start]
-            if end is not None:
-                result = result[result[date_column] <= end]
+        if start is not None:
+            # Handle datetime objects
+            if hasattr(start, "strftime"):
+                start = start.strftime("%Y-%m-%d")
+            new_clauses.append(f"{date_column} >= '{start}'")
 
-        return DataFilter(result)
+        if end is not None:
+            if hasattr(end, "strftime"):
+                end = end.strftime("%Y-%m-%d")
+            new_clauses.append(f"{date_column} <= '{end}'")
+
+        return DataFilter(self._conn, self._table, new_clauses)
 
     def by_continent(self, continent: str) -> "DataFilter":
         """
-        Filter by continent.
+        Filter by continent using SQL WHERE clause.
 
         Args:
             continent: Continent name
 
         Returns:
-            New DataFilter instance with filtered data
+            New DataFilter with added WHERE clause
         """
-        if "continent" in self._data.columns:
-            filtered = self._data[self._data["continent"] == continent].copy()
-        else:
-            filtered = self._data.copy()
-        return DataFilter(filtered)
-
-    def by_value_range(
-        self,
-        column: str,
-        min_val: Optional[float] = None,
-        max_val: Optional[float] = None,
-    ) -> "DataFilter":
-        """
-        Filter by numeric value range.
-
-        Args:
-            column: Column name to filter on
-            min_val: Minimum value (inclusive)
-            max_val: Maximum value (inclusive)
-
-        Returns:
-            New DataFilter instance with filtered data
-        """
-        result = self._data.copy()
-
-        if column in result.columns:
-            if min_val is not None:
-                result = result[result[column] >= min_val]
-            if max_val is not None:
-                result = result[result[column] <= max_val]
-
-        return DataFilter(result)
+        clause = f"location = '{continent}'"
+        new_clauses = self._where_clauses + [clause]
+        return DataFilter(self._conn, self._table, new_clauses)
 
     def result(self) -> pd.DataFrame:
         """
-        Get the filtered DataFrame.
+        Execute SQL query and return result as DataFrame.
 
         Returns:
-            Copy of the filtered DataFrame
+            DataFrame with query results (dates converted to datetime)
         """
-        return self._data.copy()
+        result = pd.read_sql_query(self.query, self._conn)
+        # Convert date column from string to datetime (SQLite returns text)
+        if "date" in result.columns:
+            result["date"] = pd.to_datetime(result["date"])
+        return result
+
+    @property
+    def query(self) -> str:
+        """
+        Get the SQL query string.
+
+        Returns:
+            SQL query string (useful for LO3 demonstration)
+        """
+        base = f"SELECT * FROM {self._table}"
+
+        if self._where_clauses:
+            where = " AND ".join(self._where_clauses)
+            return f"{base} WHERE {where}"
+
+        return base
 
     @property
     def count(self) -> int:
         """
-        Get the number of rows in filtered data.
+        Get count of rows matching current filters using SQL COUNT.
 
         Returns:
             Row count
         """
-        return len(self._data)
+        count_query = f"SELECT COUNT(*) FROM {self._table}"
+
+        if self._where_clauses:
+            where = " AND ".join(self._where_clauses)
+            count_query = f"{count_query} WHERE {where}"
+
+        cursor = self._conn.cursor()
+        cursor.execute(count_query)
+        return cursor.fetchone()[0]

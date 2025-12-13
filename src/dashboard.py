@@ -6,16 +6,14 @@ for the Public Health Data Insights Dashboard.
 
 Classes:
     DashboardState: Holds application state (data, connection)
+    Dashboard: OOP class with encapsulation
 
 Functions:
-    get_countries_only: Filter to actual countries
     load_data: Load CSV data
     get_summary: Generate data summary
     get_statistics: Calculate column statistics
     get_trend_analysis: Calculate trend for a country
-    filter_data_by_country: Filter by country names
     filter_data_by_continent: Filter by continent
-    export_data: Export to CSV
 """
 
 import pandas as pd
@@ -26,7 +24,6 @@ from src.data_loader import load_csv, get_data_info
 from src.data_cleaner import DataCleaner
 from src.filters import DataFilter
 from src.summaries import calculate_statistics, calculate_trend, get_summary_report
-from src.constants import AGGREGATE_KEYWORDS
 
 
 class DashboardState:
@@ -141,7 +138,9 @@ class Dashboard:
         """
         from src.filters import DataFilter
 
-        return DataFilter(self._data)
+        if self.db_connection is None:
+            raise ValueError("No database connection. Load data first.")
+        return DataFilter(self.db_connection)
 
     def set_data(self, data: pd.DataFrame) -> None:
         """
@@ -151,23 +150,6 @@ class Dashboard:
             data: DataFrame to set as current data
         """
         self._data = data.copy()
-
-
-def get_countries_only(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Filter DataFrame to only include actual countries (not aggregates).
-
-    Args:
-        df: DataFrame with 'location' column
-
-    Returns:
-        DataFrame with aggregate entries removed
-    """
-    if df is None or df.empty:
-        return df
-
-    pattern = "|".join(AGGREGATE_KEYWORDS)
-    return df[~df["location"].str.contains(pattern, case=False, na=False)]
 
 
 def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") -> dict:
@@ -189,7 +171,6 @@ def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") ->
         missing_before = data.isna().sum().sum()
 
         # Apply forward fill for numeric columns (per location)
-        # This is appropriate for cumulative columns like total_vaccinations
         numeric_cols = data.select_dtypes(include=["number"]).columns
         data = data.sort_values(["location", "date"])
         data[numeric_cols] = data.groupby("location")[numeric_cols].ffill()
@@ -271,10 +252,11 @@ def get_trend_analysis(state: DashboardState, country: str) -> dict:
     Returns:
         Dictionary with trend information
     """
-    if state.current_data is None:
+    if state.db_connection is None:
         return {"error": "No data loaded"}
 
-    country_data = DataFilter(state.current_data).by_country(country).result()
+    # SQL-based filtering
+    country_data = DataFilter(state.db_connection).by_country(country).result()
 
     if country_data.empty:
         return {"error": f"No data found for: {country}"}
@@ -302,61 +284,19 @@ def get_trend_analysis(state: DashboardState, country: str) -> dict:
     }
 
 
-def filter_data_by_country(state: DashboardState, countries: list) -> pd.DataFrame:
-    """
-    Filter data by country names.
-
-    Args:
-        state: DashboardState with loaded data
-        countries: List of country names
-
-    Returns:
-        Filtered DataFrame
-    """
-    if state.current_data is None:
-        return pd.DataFrame()
-
-    return DataFilter(state.current_data).by_country(countries).result()
-
-
-def filter_data_by_continent(continent: str) -> pd.DataFrame:
+def filter_data_by_continent(state: DashboardState, continent: str) -> pd.DataFrame:
     """
     Filter data by continent.
 
     Args:
+        state: DashboardState with loaded data
         continent: Continent name
 
     Returns:
         Filtered DataFrame
     """
-    try:
-        data = load_csv("data/vaccinations.csv")
-        data = DataCleaner(data).convert_dates(["date"]).result()
-        return DataFilter(data).by_country(continent).result()
-    except Exception:
+    if state.db_connection is None:
         return pd.DataFrame()
 
-
-def export_data(state: DashboardState, filepath: str) -> dict:
-    """
-    Export current data to CSV.
-
-    Args:
-        state: DashboardState with loaded data
-        filepath: Output file path
-
-    Returns:
-        Dictionary with 'success' key and optional 'error' message
-    """
-    if state.current_data is None:
-        return {"success": False, "error": "No data loaded"}
-
-    try:
-        state.current_data.to_csv(filepath, index=False)
-        return {
-            "success": True,
-            "filepath": filepath,
-            "records": len(state.current_data),
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    # SQL-based filtering
+    return DataFilter(state.db_connection).by_country(continent).result()

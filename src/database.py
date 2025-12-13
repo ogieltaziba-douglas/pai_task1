@@ -332,15 +332,23 @@ class SQLDataFilter:
         ...           .result())
     """
 
-    def __init__(self, conn: sqlite3.Connection, table: str = "vaccinations"):
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        table: str = "vaccinations",
+        where_clauses: list = None,
+    ):
         """
         Initialize SQLDataFilter with database connection.
 
         Args:
             conn: SQLite database connection
             table: Table name to query (default: 'vaccinations')
+            where_clauses: List of WHERE clause conditions (internal use)
         """
-        raise NotImplementedError("SQLDataFilter.__init__ not implemented")
+        self._conn = conn
+        self._table = table
+        self._where_clauses = where_clauses if where_clauses else []
 
     def by_country(self, countries) -> "SQLDataFilter":
         """
@@ -352,7 +360,17 @@ class SQLDataFilter:
         Returns:
             New SQLDataFilter with added WHERE clause
         """
-        raise NotImplementedError("SQLDataFilter.by_country not implemented")
+        # Handle single country or list
+        if isinstance(countries, str):
+            countries = [countries]
+
+        # Build SQL IN clause
+        placeholders = ", ".join([f"'{c}'" for c in countries])
+        clause = f"location IN ({placeholders})"
+
+        # Return new instance with added clause (immutability)
+        new_clauses = self._where_clauses + [clause]
+        return SQLDataFilter(self._conn, self._table, new_clauses)
 
     def by_date_range(self, start=None, end=None) -> "SQLDataFilter":
         """
@@ -365,7 +383,15 @@ class SQLDataFilter:
         Returns:
             New SQLDataFilter with added WHERE clause
         """
-        raise NotImplementedError("SQLDataFilter.by_date_range not implemented")
+        new_clauses = self._where_clauses.copy()
+
+        if start is not None:
+            new_clauses.append(f"date >= '{start}'")
+
+        if end is not None:
+            new_clauses.append(f"date <= '{end}'")
+
+        return SQLDataFilter(self._conn, self._table, new_clauses)
 
     def result(self) -> pd.DataFrame:
         """
@@ -374,7 +400,7 @@ class SQLDataFilter:
         Returns:
             DataFrame with query results
         """
-        raise NotImplementedError("SQLDataFilter.result not implemented")
+        return pd.read_sql_query(self.query, self._conn)
 
     @property
     def query(self) -> str:
@@ -384,7 +410,13 @@ class SQLDataFilter:
         Returns:
             SQL query string
         """
-        raise NotImplementedError("SQLDataFilter.query not implemented")
+        base = f"SELECT * FROM {self._table}"
+
+        if self._where_clauses:
+            where = " AND ".join(self._where_clauses)
+            return f"{base} WHERE {where}"
+
+        return base
 
     @property
     def count(self) -> int:
@@ -394,4 +426,12 @@ class SQLDataFilter:
         Returns:
             Row count
         """
-        raise NotImplementedError("SQLDataFilter.count not implemented")
+        count_query = f"SELECT COUNT(*) FROM {self._table}"
+
+        if self._where_clauses:
+            where = " AND ".join(self._where_clauses)
+            count_query = f"{count_query} WHERE {where}"
+
+        cursor = self._conn.cursor()
+        cursor.execute(count_query)
+        return cursor.fetchone()[0]

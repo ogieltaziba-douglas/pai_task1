@@ -51,6 +51,7 @@ class Dashboard:
     def __init__(self):
         """Initialize Dashboard with no data."""
         self._data: Optional[pd.DataFrame] = None
+        self.db_connection = None  # SQLite connection for SQL filters
 
     def load(self, filepath: str) -> dict:
         """

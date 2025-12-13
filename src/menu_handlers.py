@@ -24,15 +24,14 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
 from src.dashboard import (
-    DashboardState,
     load_data,
     get_summary,
     get_statistics,
     get_trend_analysis,
     filter_data_by_country,
     filter_data_by_continent,
-    export_data,
     get_countries_only,
 )
 from src.constants import (
@@ -45,7 +44,7 @@ from src.filters import filter_by_country, DataFilter
 from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
-from src.database import create_connection, insert_dataframe, close_connection
+from src.database import create_connection, insert_dataframe, SQLDataFilter
 from src.logger import ActivityLogger
 
 # Global logger instance (OOP)
@@ -170,11 +169,14 @@ def handle_load_data(state):
         load_to_db = get_user_input("Load data into database? (y/n)").lower()
         if load_to_db == "y":
             try:
-                db_conn = create_connection("data/vaccinations.db")
-                rows = insert_dataframe(db_conn, "vaccinations", state.current_data)
+                # Store connection for SQL filtering
+                state.db_connection = create_connection("data/vaccinations.db")
+                rows = insert_dataframe(
+                    state.db_connection, "vaccinations", state.current_data
+                )
                 print(f"\n✓ Inserted {rows:,} records into database")
+                print("  SQL filters are now available.")
                 logger.log("LOAD_DB", f"Inserted {rows:,} records into database")
-                close_connection(db_conn)
             except Exception as e:
                 print(f"\n✗ Error: {e}")
     else:
@@ -219,9 +221,18 @@ def handle_filter_country(state):
         print("\n✗ No selection entered.")
         return
 
-    # Use DataFilter class (OOP with method chaining)
-    data_filter = DataFilter(state.current_data).by_country(country)
-    filtered = data_filter.result()
+    # Use SQLDataFilter if database is available, else fallback to DataFilter
+    if state.db_connection is not None:
+        # SQL-based filtering (LO3)
+        sql_filter = SQLDataFilter(state.db_connection).by_country(country)
+        filtered = sql_filter.result()
+        record_count = sql_filter.count
+        print(f"\n  [Using SQL filter: {sql_filter.query[:60]}...]")
+    else:
+        # Pandas-based filtering
+        data_filter = DataFilter(state.current_data).by_country(country)
+        filtered = data_filter.result()
+        record_count = data_filter.count
 
     if filtered.empty:
         print(f"\n✗ No data found for: {country}")
@@ -230,11 +241,11 @@ def handle_filter_country(state):
     # Show initial filter result
     date_min = filtered["date"].min()
     date_max = filtered["date"].max()
-    print(f"\n✓ Found {data_filter.count:,} records for: {country}")
-    print(f"  Date range: {date_min.date()} to {date_max.date()}")
+    print(f"\n✓ Found {record_count:,} records for: {country}")
+    print(f"  Date range: {date_min} to {date_max}")
 
     # Log the preview
-    logger.log("PREVIEW_COUNTRY", f"Viewed {country} ({data_filter.count:,} records)")
+    logger.log("PREVIEW_COUNTRY", f"Viewed {country} ({record_count:,} records)")
 
     # Optional date filtering (using DataFilter)
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":

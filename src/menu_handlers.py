@@ -46,7 +46,10 @@ from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
 from src.database import create_connection, insert_dataframe, close_connection
-from src.logger import log_activity, get_log_entries, get_session_log
+from src.logger import ActivityLogger
+
+# Global logger instance (OOP)
+logger = ActivityLogger()
 
 
 def format_preview(df, note_missing=True):
@@ -149,7 +152,7 @@ def handle_load_data(state):
         print(f"  Columns: {', '.join(result['columns'][:5])}...")
 
         # Log the activity
-        log_activity(
+        logger.log(
             "LOAD_DATA", f"Loaded {result['row_count']:,} records from {filepath}"
         )
 
@@ -170,7 +173,7 @@ def handle_load_data(state):
                 db_conn = create_connection("data/vaccinations.db")
                 rows = insert_dataframe(db_conn, "vaccinations", state.current_data)
                 print(f"\n✓ Inserted {rows:,} records into database")
-                log_activity("LOAD_DB", f"Inserted {rows:,} records into database")
+                logger.log("LOAD_DB", f"Inserted {rows:,} records into database")
                 close_connection(db_conn)
             except Exception as e:
                 print(f"\n✗ Error: {e}")
@@ -229,7 +232,7 @@ def handle_filter_country(state):
     print(f"  Date range: {date_min.date()} to {date_max.date()}")
 
     # Log the preview
-    log_activity("PREVIEW_COUNTRY", f"Viewed {country} ({len(filtered):,} records)")
+    logger.log("PREVIEW_COUNTRY", f"Viewed {country} ({len(filtered):,} records)")
 
     # Optional date filtering
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
@@ -243,7 +246,7 @@ def handle_filter_country(state):
 
     if get_user_input("\nUse filtered data? (y/n)").lower() == "y":
         state.current_data = filtered
-        log_activity(
+        logger.log(
             "APPLY_COUNTRY", f"Applied filter for {country} ({len(filtered):,} records)"
         )
         print("✓ Now using filtered data.")
@@ -286,7 +289,7 @@ def handle_filter_continent(state):
     print(f"  Date range: {date_min.date()} to {date_max.date()}")
 
     # Log the preview
-    log_activity("PREVIEW_CONTINENT", f"Viewed {continent} ({len(filtered):,} records)")
+    logger.log("PREVIEW_CONTINENT", f"Viewed {continent} ({len(filtered):,} records)")
 
     # Optional date filtering
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
@@ -300,7 +303,7 @@ def handle_filter_continent(state):
 
     if get_user_input("\nUse this data? (y/n)").lower() == "y":
         state.current_data = filtered
-        log_activity(
+        logger.log(
             "APPLY_CONTINENT",
             f"Applied filter for {continent} ({len(filtered):,} records)",
         )
@@ -638,7 +641,7 @@ def handle_export(state):
     # Save the data
     data_to_export.to_csv(filepath, index=False)
 
-    log_activity("EXPORT", f"Exported {len(data_to_export):,} records to {filepath}")
+    logger.log("EXPORT", f"Exported {len(data_to_export):,} records to {filepath}")
     print(f"\n✓ Exported {len(data_to_export):,} records to: {filepath}")
 
 
@@ -649,17 +652,15 @@ def handle_view_log(state):
     print("=" * 55)
 
     print("\n--- Current Session ---")
-    session_log = get_session_log()
-    if session_log:
-        for entry in session_log[-10:]:  # Show last 10 session entries
+    if logger.session_entries:
+        for entry in logger.session_entries[-10:]:
             print(f"  {entry}")
     else:
         print("  No activities in current session.")
 
     print("\n--- Log File (last 10 entries) ---")
-    log_entries = get_log_entries()
-    if log_entries:
-        for entry in log_entries[-10:]:
+    if logger.file_entries:
+        for entry in logger.file_entries[-10:]:
             print(f"  {entry}")
     else:
         print("  No log file entries found.")

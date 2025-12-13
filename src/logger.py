@@ -17,12 +17,19 @@ Usage:
     print(logger.session_entries)
 """
 
+import os
+from datetime import datetime
 from typing import List
 
 
 class ActivityLogger:
     """
     Activity Logger for tracking user actions.
+
+    Demonstrates OOP principles:
+    - Encapsulation: Private _session_log and _log_file attributes
+    - Properties: Controlled access via session_entries, file_entries
+    - Methods: log(), clear() for behavior
 
     Attributes:
         _session_log (List[str]): Private session log entries
@@ -42,7 +49,13 @@ class ActivityLogger:
         Args:
             log_file: Path to log file (default: logs/activity.log)
         """
-        raise NotImplementedError("ActivityLogger.__init__ not implemented")
+        self._session_log: List[str] = []
+        self._log_file = log_file
+
+        # Ensure log directory exists
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
 
     def log(self, action: str, details: str) -> None:
         """
@@ -52,7 +65,19 @@ class ActivityLogger:
             action: Action name (e.g., 'LOAD_DATA', 'FILTER')
             details: Description of the activity
         """
-        raise NotImplementedError("ActivityLogger.log not implemented")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        entry = f"[{timestamp}] {action}: {details}"
+
+        # Add to session log
+        self._session_log.append(entry)
+
+        # Append to log file
+        try:
+            with open(self._log_file, "a", encoding="utf-8") as f:
+                f.write(entry + "\n")
+        except Exception:
+            # If file write fails, we still have session log
+            pass
 
     @property
     def session_entries(self) -> List[str]:
@@ -62,7 +87,7 @@ class ActivityLogger:
         Returns:
             Copy of session log entries
         """
-        raise NotImplementedError("ActivityLogger.session_entries not implemented")
+        return self._session_log.copy()
 
     @property
     def file_entries(self) -> List[str]:
@@ -72,8 +97,21 @@ class ActivityLogger:
         Returns:
             List of log entries from file
         """
-        raise NotImplementedError("ActivityLogger.file_entries not implemented")
+        if not os.path.exists(self._log_file):
+            return []
+
+        try:
+            with open(self._log_file, "r", encoding="utf-8") as f:
+                return [line.strip() for line in f.readlines() if line.strip()]
+        except Exception:
+            return []
 
     def clear(self) -> None:
         """Clear all log entries (session and file)."""
-        raise NotImplementedError("ActivityLogger.clear not implemented")
+        self._session_log = []
+
+        try:
+            with open(self._log_file, "w", encoding="utf-8") as f:
+                f.write("")
+        except Exception:
+            pass

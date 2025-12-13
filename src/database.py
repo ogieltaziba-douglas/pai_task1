@@ -305,3 +305,93 @@ def delete_record(conn: sqlite3.Connection, table_name: str, record_id: int) -> 
     conn.commit()
 
     return cursor.rowcount > 0
+
+
+# ============================================================================
+# OOP SQLDataFilter Class (SQL-based filtering with method chaining)
+# ============================================================================
+
+
+class SQLDataFilter:
+    """
+    SQL-based data filter with method chaining support.
+
+    OOP Principles Demonstrated:
+    - Method chaining (fluent interface)
+    - Encapsulation (private attributes)
+    - SQL query building
+
+    LO3 Demonstration:
+    - Uses actual SQL WHERE clauses
+    - Executes SQL queries against SQLite database
+
+    Example:
+        >>> result = (SQLDataFilter(conn)
+        ...           .by_country('Spain')
+        ...           .by_date_range(start='2021-01-01')
+        ...           .result())
+    """
+
+    def __init__(self, conn: sqlite3.Connection, table: str = "vaccinations"):
+        """
+        Initialize SQLDataFilter with database connection.
+
+        Args:
+            conn: SQLite database connection
+            table: Table name to query (default: 'vaccinations')
+        """
+        raise NotImplementedError("SQLDataFilter.__init__ not implemented")
+
+    def by_country(self, countries) -> "SQLDataFilter":
+        """
+        Filter by country using SQL WHERE clause.
+
+        Args:
+            countries: Country name (str) or list of countries
+
+        Returns:
+            New SQLDataFilter with added WHERE clause
+        """
+        raise NotImplementedError("SQLDataFilter.by_country not implemented")
+
+    def by_date_range(self, start=None, end=None) -> "SQLDataFilter":
+        """
+        Filter by date range using SQL WHERE clause.
+
+        Args:
+            start: Start date string (inclusive)
+            end: End date string (inclusive)
+
+        Returns:
+            New SQLDataFilter with added WHERE clause
+        """
+        raise NotImplementedError("SQLDataFilter.by_date_range not implemented")
+
+    def result(self) -> pd.DataFrame:
+        """
+        Execute SQL query and return result as DataFrame.
+
+        Returns:
+            DataFrame with query results
+        """
+        raise NotImplementedError("SQLDataFilter.result not implemented")
+
+    @property
+    def query(self) -> str:
+        """
+        Get the SQL query string.
+
+        Returns:
+            SQL query string
+        """
+        raise NotImplementedError("SQLDataFilter.query not implemented")
+
+    @property
+    def count(self) -> int:
+        """
+        Get count of rows matching current filters.
+
+        Returns:
+            Row count
+        """
+        raise NotImplementedError("SQLDataFilter.count not implemented")

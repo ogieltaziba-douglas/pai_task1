@@ -220,7 +220,7 @@ class DataFilter:
         Args:
             data: DataFrame to filter
         """
-        raise NotImplementedError("DataFilter.__init__ not implemented")
+        self._data = data.copy()
 
     def by_country(self, countries) -> "DataFilter":
         """
@@ -232,7 +232,12 @@ class DataFilter:
         Returns:
             New DataFilter instance with filtered data
         """
-        raise NotImplementedError("DataFilter.by_country not implemented")
+        # Handle both single country and list
+        if isinstance(countries, str):
+            countries = [countries]
+
+        filtered = filter_by_country(self._data, countries)
+        return DataFilter(filtered)
 
     def by_date_range(self, start=None, end=None) -> "DataFilter":
         """
@@ -245,7 +250,8 @@ class DataFilter:
         Returns:
             New DataFilter instance with filtered data
         """
-        raise NotImplementedError("DataFilter.by_date_range not implemented")
+        filtered = filter_by_date_range(self._data, start, end)
+        return DataFilter(filtered)
 
     def by_continent(self, continent: str) -> "DataFilter":
         """
@@ -257,7 +263,11 @@ class DataFilter:
         Returns:
             New DataFilter instance with filtered data
         """
-        raise NotImplementedError("DataFilter.by_continent not implemented")
+        if "continent" in self._data.columns:
+            filtered = self._data[self._data["continent"] == continent].copy()
+        else:
+            filtered = self._data.copy()
+        return DataFilter(filtered)
 
     def result(self) -> pd.DataFrame:
         """
@@ -266,7 +276,7 @@ class DataFilter:
         Returns:
             Copy of the filtered DataFrame
         """
-        raise NotImplementedError("DataFilter.result not implemented")
+        return self._data.copy()
 
     @property
     def count(self) -> int:
@@ -276,4 +286,4 @@ class DataFilter:
         Returns:
             Row count
         """
-        raise NotImplementedError("DataFilter.count not implemented")
+        return len(self._data)

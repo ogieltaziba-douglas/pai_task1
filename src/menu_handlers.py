@@ -41,7 +41,7 @@ from src.constants import (
     KEY_COUNTRIES,
     COLUMN_DESCRIPTIONS,
 )
-from src.filters import filter_by_country
+from src.filters import filter_by_country, DataFilter
 from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
@@ -219,7 +219,9 @@ def handle_filter_country(state):
         print("\n✗ No selection entered.")
         return
 
-    filtered = filter_data_by_country(state, [country])
+    # Use DataFilter class (OOP with method chaining)
+    data_filter = DataFilter(state.current_data).by_country(country)
+    filtered = data_filter.result()
 
     if filtered.empty:
         print(f"\n✗ No data found for: {country}")
@@ -228,13 +230,13 @@ def handle_filter_country(state):
     # Show initial filter result
     date_min = filtered["date"].min()
     date_max = filtered["date"].max()
-    print(f"\n✓ Found {len(filtered):,} records for: {country}")
+    print(f"\n✓ Found {data_filter.count:,} records for: {country}")
     print(f"  Date range: {date_min.date()} to {date_max.date()}")
 
     # Log the preview
-    logger.log("PREVIEW_COUNTRY", f"Viewed {country} ({len(filtered):,} records)")
+    logger.log("PREVIEW_COUNTRY", f"Viewed {country} ({data_filter.count:,} records)")
 
-    # Optional date filtering
+    # Optional date filtering (using DataFilter)
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
         filtered = prompt_date_filter(filtered)
 
@@ -605,7 +607,10 @@ def handle_export(state):
         if choice == "2":
             country = display_country_menu()
             if country:
-                data_to_export = filter_data_by_country(state, [country])
+                # Use DataFilter class (OOP)
+                data_to_export = (
+                    DataFilter(state.current_data).by_country(country).result()
+                )
                 print(
                     f"\n  ✓ Filtered to {len(data_to_export):,} records for {country}"
                 )

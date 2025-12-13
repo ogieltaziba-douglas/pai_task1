@@ -190,3 +190,90 @@ def apply_filters(df: pd.DataFrame, criteria: dict) -> pd.DataFrame:
         )
 
     return result
+
+
+# ============================================================================
+# OOP DataFilter Class (Method Chaining)
+# ============================================================================
+
+
+class DataFilter:
+    """
+    Fluent data filter with method chaining support.
+
+    OOP Principles Demonstrated:
+    - Method chaining (fluent interface)
+    - Encapsulation (private _data attribute)
+    - Immutability (methods return new instances)
+
+    Example:
+        >>> result = (DataFilter(df)
+        ...           .by_country('Spain')
+        ...           .by_date_range(start=datetime(2021, 1, 1))
+        ...           .result())
+    """
+
+    def __init__(self, data: pd.DataFrame):
+        """
+        Initialize DataFilter with a DataFrame.
+
+        Args:
+            data: DataFrame to filter
+        """
+        raise NotImplementedError("DataFilter.__init__ not implemented")
+
+    def by_country(self, countries) -> "DataFilter":
+        """
+        Filter by country.
+
+        Args:
+            countries: Country name (str) or list of countries
+
+        Returns:
+            New DataFilter instance with filtered data
+        """
+        raise NotImplementedError("DataFilter.by_country not implemented")
+
+    def by_date_range(self, start=None, end=None) -> "DataFilter":
+        """
+        Filter by date range.
+
+        Args:
+            start: Start date (inclusive)
+            end: End date (inclusive)
+
+        Returns:
+            New DataFilter instance with filtered data
+        """
+        raise NotImplementedError("DataFilter.by_date_range not implemented")
+
+    def by_continent(self, continent: str) -> "DataFilter":
+        """
+        Filter by continent.
+
+        Args:
+            continent: Continent name
+
+        Returns:
+            New DataFilter instance with filtered data
+        """
+        raise NotImplementedError("DataFilter.by_continent not implemented")
+
+    def result(self) -> pd.DataFrame:
+        """
+        Get the filtered DataFrame.
+
+        Returns:
+            Copy of the filtered DataFrame
+        """
+        raise NotImplementedError("DataFilter.result not implemented")
+
+    @property
+    def count(self) -> int:
+        """
+        Get the number of rows in filtered data.
+
+        Returns:
+            Row count
+        """
+        raise NotImplementedError("DataFilter.count not implemented")

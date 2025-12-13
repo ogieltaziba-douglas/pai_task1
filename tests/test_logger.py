@@ -1,156 +1,212 @@
 """
-Tests for Activity Logger Module
+Tests for Activity Logger Module (OOP-Only)
 
-Tests for logging user activities and actions in the dashboard.
+Tests for the ActivityLogger class that provides activity logging
+with proper encapsulation and OOP principles.
 """
 
 import pytest
 import os
 import tempfile
-from datetime import datetime
 
 
-class TestLogActivity:
-    """Tests for log_activity function."""
+class TestActivityLoggerClass:
+    """Tests for ActivityLogger class existence and initialization."""
 
-    def test_log_activity_exists(self):
-        """Test that log_activity function is defined."""
-        from src.logger import log_activity
+    def test_activity_logger_class_exists(self):
+        """Test that ActivityLogger class is defined."""
+        from src.logger import ActivityLogger
 
-        assert log_activity is not None
+        assert ActivityLogger is not None
 
-    def test_log_activity_creates_log_entry(self):
-        """Test that log_activity creates a log entry."""
-        from src.logger import log_activity, get_log_entries
+    def test_activity_logger_initialization_default(self):
+        """Test that ActivityLogger can be instantiated with defaults."""
+        from src.logger import ActivityLogger
+
+        logger = ActivityLogger()
+        assert logger is not None
+
+    def test_activity_logger_initialization_custom_file(self):
+        """Test that ActivityLogger accepts custom log file."""
+        from src.logger import ActivityLogger
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "custom.log")
+            logger = ActivityLogger(log_file=log_file)
+            assert logger is not None
+
+
+class TestActivityLoggerLogMethod:
+    """Tests for the log() method."""
+
+    def test_log_method_exists(self):
+        """Test that log method is defined."""
+        from src.logger import ActivityLogger
+
+        logger = ActivityLogger()
+        assert hasattr(logger, "log")
+
+    def test_log_creates_session_entry(self):
+        """Test that log() adds entry to session."""
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
-            log_activity("test_action", "Test details", log_file=log_file)
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST", "Test details")
 
-            entries = get_log_entries(log_file)
-            assert len(entries) >= 1
+            assert len(logger.session_entries) == 1
 
-    def test_log_activity_includes_timestamp(self):
+    def test_log_creates_file_entry(self):
+        """Test that log() writes to file."""
+        from src.logger import ActivityLogger
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST", "Test details")
+
+            assert len(logger.file_entries) >= 1
+
+    def test_log_includes_timestamp(self):
         """Test that log entries include timestamp."""
-        from src.logger import log_activity, get_log_entries
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
-            log_activity("test_action", "Test details", log_file=log_file)
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST", "Test details")
 
-            entries = get_log_entries(log_file)
-            assert "timestamp" in entries[-1] or any(
-                char.isdigit() for char in str(entries[-1])
-            )
+            entry = logger.session_entries[0]
+            assert "[" in entry and "]" in entry  # timestamp brackets
 
-    def test_log_activity_includes_action(self):
+    def test_log_includes_action(self):
         """Test that log entries include action name."""
-        from src.logger import log_activity, get_log_entries
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
-            log_activity("LOAD_DATA", "Loaded vaccinations.csv", log_file=log_file)
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("LOAD_DATA", "Loaded file")
 
-            entries = get_log_entries(log_file)
-            assert "LOAD_DATA" in str(entries[-1])
-
-
-class TestGetLogEntries:
-    """Tests for get_log_entries function."""
-
-    def test_get_log_entries_exists(self):
-        """Test that get_log_entries function is defined."""
-        from src.logger import get_log_entries
-
-        assert get_log_entries is not None
-
-    def test_get_log_entries_returns_list(self):
-        """Test that get_log_entries returns a list."""
-        from src.logger import get_log_entries
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            log_file = os.path.join(tmpdir, "test.log")
-            # Create empty log file
-            open(log_file, "w").close()
-
-            entries = get_log_entries(log_file)
-            assert isinstance(entries, list)
-
-    def test_get_log_entries_handles_missing_file(self):
-        """Test that get_log_entries handles missing file gracefully."""
-        from src.logger import get_log_entries
-
-        entries = get_log_entries("/nonexistent/path/log.txt")
-        assert entries == []
+            entry = logger.session_entries[0]
+            assert "LOAD_DATA" in entry
 
 
-class TestClearLog:
-    """Tests for clear_log function."""
+class TestActivityLoggerProperties:
+    """Tests for properties (encapsulation)."""
 
-    def test_clear_log_exists(self):
-        """Test that clear_log function is defined."""
-        from src.logger import clear_log
+    def test_session_entries_property_exists(self):
+        """Test that session_entries property is defined."""
+        from src.logger import ActivityLogger
 
-        assert clear_log is not None
+        logger = ActivityLogger()
+        assert hasattr(logger, "session_entries")
 
-    def test_clear_log_removes_entries(self):
-        """Test that clear_log removes all entries."""
-        from src.logger import log_activity, clear_log, get_log_entries
+    def test_session_entries_returns_list(self):
+        """Test that session_entries returns a list."""
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
-            log_activity("test", "details", log_file=log_file)
-            clear_log(log_file)
+            logger = ActivityLogger(log_file=log_file)
 
-            entries = get_log_entries(log_file)
-            assert len(entries) == 0
+            assert isinstance(logger.session_entries, list)
+
+    def test_session_entries_returns_copy(self):
+        """Test that session_entries returns copy (encapsulation)."""
+        from src.logger import ActivityLogger
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
+
+            entries = logger.session_entries
+            entries.append("FAKE ENTRY")
+
+            assert "FAKE ENTRY" not in logger.session_entries
+
+    def test_file_entries_property_exists(self):
+        """Test that file_entries property is defined."""
+        from src.logger import ActivityLogger
+
+        logger = ActivityLogger()
+        assert hasattr(logger, "file_entries")
+
+    def test_file_entries_returns_list(self):
+        """Test that file_entries returns a list."""
+        from src.logger import ActivityLogger
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
+
+            assert isinstance(logger.file_entries, list)
 
 
-class TestGetSessionLog:
-    """Tests for get_session_log function."""
+class TestActivityLoggerClear:
+    """Tests for clear() method."""
 
-    def test_get_session_log_exists(self):
-        """Test that get_session_log function is defined."""
-        from src.logger import get_session_log
+    def test_clear_method_exists(self):
+        """Test that clear method is defined."""
+        from src.logger import ActivityLogger
 
-        assert get_session_log is not None
+        logger = ActivityLogger()
+        assert hasattr(logger, "clear")
 
-    def test_get_session_log_returns_list(self):
-        """Test that get_session_log returns a list."""
-        from src.logger import get_session_log
+    def test_clear_removes_session_entries(self):
+        """Test that clear() removes session entries."""
+        from src.logger import ActivityLogger
 
-        log = get_session_log()
-        assert isinstance(log, list)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST", "details")
+            logger.clear()
+
+            assert len(logger.session_entries) == 0
+
+    def test_clear_removes_file_entries(self):
+        """Test that clear() removes file entries."""
+        from src.logger import ActivityLogger
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST", "details")
+            logger.clear()
+
+            assert len(logger.file_entries) == 0
 
 
-class TestLoggerIntegration:
-    """Integration tests for logger module."""
+class TestActivityLoggerIntegration:
+    """Integration tests for ActivityLogger."""
 
     def test_multiple_logs(self):
         """Test logging multiple activities."""
-        from src.logger import log_activity, get_log_entries
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
+            logger = ActivityLogger(log_file=log_file)
 
-            log_activity("LOAD_DATA", "Loaded data", log_file=log_file)
-            log_activity("FILTER", "Filtered by country", log_file=log_file)
-            log_activity("EXPORT", "Exported to CSV", log_file=log_file)
+            logger.log("LOAD_DATA", "Loaded data")
+            logger.log("FILTER", "Filtered by country")
+            logger.log("EXPORT", "Exported to CSV")
 
-            entries = get_log_entries(log_file)
-            assert len(entries) >= 3
+            assert len(logger.session_entries) == 3
+            assert len(logger.file_entries) == 3
 
     def test_log_format(self):
         """Test that log entries have proper format."""
-        from src.logger import log_activity, get_log_entries
+        from src.logger import ActivityLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
-            log_activity("TEST_ACTION", "Test details here", log_file=log_file)
+            logger = ActivityLogger(log_file=log_file)
+            logger.log("TEST_ACTION", "Test details here")
 
-            entries = get_log_entries(log_file)
-            entry = entries[-1]
+            entry = logger.session_entries[0]
 
-            # Should contain action and details
-            assert "TEST_ACTION" in str(entry)
-            assert "Test details" in str(entry)
+            assert "TEST_ACTION" in entry
+            assert "Test details" in entry

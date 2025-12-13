@@ -1,104 +1,79 @@
 """
-Activity Logger Module
+Activity Logger Module (OOP-Only)
 
-This module handles logging of user activities and actions
+Provides the ActivityLogger class for tracking user activities
 in the Public Health Data Insights Dashboard.
 
-Functions:
-    log_activity: Log a user activity to file and session
-    get_log_entries: Retrieve log entries from file
-    clear_log: Clear all log entries
-    get_session_log: Get in-memory session log
+OOP Principles Demonstrated:
+- Encapsulation: Private attributes with property accessors
+- Methods: Behavior encapsulated in class methods
+- Single Responsibility: One class, one purpose
+
+Usage:
+    from src.logger import ActivityLogger
+
+    logger = ActivityLogger()
+    logger.log('LOAD_DATA', 'Loaded 196,246 records')
+    print(logger.session_entries)
 """
 
-import os
-from datetime import datetime
 from typing import List
 
 
-# Session log for current session (in-memory)
-_session_log: List[str] = []
-
-
-def log_activity(
-    action: str, details: str, log_file: str = "logs/activity.log"
-) -> None:
+class ActivityLogger:
     """
-    Log a user activity.
+    Activity Logger for tracking user actions.
 
-    Args:
-        action: Action name (e.g., 'LOAD_DATA', 'FILTER', 'EXPORT')
-        details: Description of the activity
-        log_file: Path to log file
+    Attributes:
+        _session_log (List[str]): Private session log entries
+        _log_file (str): Path to log file
+
+    Example:
+        >>> logger = ActivityLogger()
+        >>> logger.log('LOAD_DATA', 'Loaded data')
+        >>> print(logger.session_entries)
+        ['[2025-12-13 18:00:00] LOAD_DATA: Loaded data']
     """
-    global _session_log
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    entry = f"[{timestamp}] {action}: {details}"
+    def __init__(self, log_file: str = "logs/activity.log"):
+        """
+        Initialize the ActivityLogger.
 
-    # Add to session log
-    _session_log.append(entry)
+        Args:
+            log_file: Path to log file (default: logs/activity.log)
+        """
+        raise NotImplementedError("ActivityLogger.__init__ not implemented")
 
-    # Ensure directory exists
-    log_dir = os.path.dirname(log_file)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
+    def log(self, action: str, details: str) -> None:
+        """
+        Log an activity.
 
-    # Append to log file
-    try:
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(entry + "\n")
-    except Exception:
-        # If we can't write to file, at least we have session log
-        pass
+        Args:
+            action: Action name (e.g., 'LOAD_DATA', 'FILTER')
+            details: Description of the activity
+        """
+        raise NotImplementedError("ActivityLogger.log not implemented")
 
+    @property
+    def session_entries(self) -> List[str]:
+        """
+        Get session log entries (returns copy for encapsulation).
 
-def get_log_entries(log_file: str = "logs/activity.log") -> List[str]:
-    """
-    Get all log entries from file.
+        Returns:
+            Copy of session log entries
+        """
+        raise NotImplementedError("ActivityLogger.session_entries not implemented")
 
-    Args:
-        log_file: Path to log file
+    @property
+    def file_entries(self) -> List[str]:
+        """
+        Get log entries from file.
 
-    Returns:
-        List of log entry strings
-    """
-    if not os.path.exists(log_file):
-        return []
+        Returns:
+            List of log entries from file
+        """
+        raise NotImplementedError("ActivityLogger.file_entries not implemented")
 
-    try:
-        with open(log_file, "r", encoding="utf-8") as f:
-            entries = [line.strip() for line in f.readlines() if line.strip()]
-        return entries
-    except Exception:
-        return []
-
-
-def clear_log(log_file: str = "logs/activity.log") -> None:
-    """
-    Clear all log entries.
-
-    Args:
-        log_file: Path to log file
-    """
-    global _session_log
-
-    # Clear session log
-    _session_log = []
-
-    # Clear file
-    try:
-        with open(log_file, "w", encoding="utf-8") as f:
-            f.write("")
-    except Exception:
-        pass
-
-
-def get_session_log() -> List[str]:
-    """
-    Get log entries from current session (in-memory).
-
-    Returns:
-        List of log entry strings for current session
-    """
-    return _session_log.copy()
+    def clear(self) -> None:
+        """Clear all log entries (session and file)."""
+        raise NotImplementedError("ActivityLogger.clear not implemented")

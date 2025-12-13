@@ -87,6 +87,21 @@ class Dashboard:
         return self._data.copy()
 
     @property
+    def current_data(self) -> Optional[pd.DataFrame]:
+        """
+        Get current data (backwards compatible with DashboardState).
+
+        Note: Returns the actual data, not a copy, for compatibility
+        with handlers that modify state.current_data directly.
+        """
+        return self._data
+
+    @current_data.setter
+    def current_data(self, value: Optional[pd.DataFrame]) -> None:
+        """Set current data (backwards compatible with DashboardState)."""
+        self._data = value
+
+    @property
     def row_count(self) -> int:
         """Get number of rows in current data."""
         if self._data is None:

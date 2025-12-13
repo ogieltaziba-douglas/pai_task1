@@ -15,7 +15,7 @@ import sys
 # Add src to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.dashboard import DashboardState
+from src.dashboard import Dashboard
 from src.cli import get_user_input
 from src.menu_handlers import (
     handle_load_data,
@@ -63,7 +63,7 @@ def main():
     print("=" * 60)
     print("\nThis tool helps researchers analyse COVID-19 vaccination data.")
 
-    state = DashboardState()
+    state = Dashboard()
 
     handlers = {
         "1": handle_load_data,

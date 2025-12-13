@@ -50,7 +50,7 @@ class Dashboard:
 
     def __init__(self):
         """Initialize Dashboard with no data."""
-        raise NotImplementedError("Dashboard.__init__ not implemented")
+        self._data: Optional[pd.DataFrame] = None
 
     def load(self, filepath: str) -> dict:
         """
@@ -62,22 +62,41 @@ class Dashboard:
         Returns:
             Dict with success status and metadata
         """
-        raise NotImplementedError("Dashboard.load not implemented")
+        try:
+            # Load directly using load_csv
+            data = load_csv(filepath)
+            data = convert_dates(data, ["date"], errors="coerce")
+            self._data = data
+
+            return {
+                "success": True,
+                "row_count": len(data),
+                "column_count": len(data.columns),
+                "columns": list(data.columns),
+            }
+        except FileNotFoundError:
+            return {"success": False, "error": f"File not found: {filepath}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     @property
     def data(self) -> Optional[pd.DataFrame]:
         """Get current data (returns copy for encapsulation)."""
-        raise NotImplementedError("Dashboard.data not implemented")
+        if self._data is None:
+            return None
+        return self._data.copy()
 
     @property
     def row_count(self) -> int:
         """Get number of rows in current data."""
-        raise NotImplementedError("Dashboard.row_count not implemented")
+        if self._data is None:
+            return 0
+        return len(self._data)
 
     @property
     def is_loaded(self) -> bool:
         """Check if data is loaded."""
-        raise NotImplementedError("Dashboard.is_loaded not implemented")
+        return self._data is not None
 
     def summary(self) -> dict:
         """
@@ -86,7 +105,14 @@ class Dashboard:
         Returns:
             Dict with summary statistics
         """
-        raise NotImplementedError("Dashboard.summary not implemented")
+        if self._data is None:
+            return {"row_count": 0, "columns": []}
+
+        return {
+            "row_count": len(self._data),
+            "column_count": len(self._data.columns),
+            "columns": list(self._data.columns),
+        }
 
     def filter(self):
         """
@@ -95,7 +121,9 @@ class Dashboard:
         Returns:
             DataFilter instance for method chaining
         """
-        raise NotImplementedError("Dashboard.filter not implemented")
+        from src.filters import DataFilter
+
+        return DataFilter(self._data)
 
     def set_data(self, data: pd.DataFrame) -> None:
         """
@@ -104,7 +132,7 @@ class Dashboard:
         Args:
             data: DataFrame to set as current data
         """
-        raise NotImplementedError("Dashboard.set_data not implemented")
+        self._data = data.copy()
 
 
 def get_countries_only(df: pd.DataFrame) -> pd.DataFrame:

@@ -276,3 +276,91 @@ def clean_dataframe(
         )
 
     return result
+
+
+# ============================================================================
+# OOP DataCleaner Class (Method Chaining)
+# ============================================================================
+
+
+class DataCleaner:
+    """
+    Data cleaner class with OOP method chaining support.
+
+    OOP Principles Demonstrated:
+    - Method chaining (fluent interface)
+    - Encapsulation (private _data attribute)
+    - Immutability (methods return new instances)
+
+    Example:
+        >>> cleaned = (DataCleaner(raw_data)
+        ...            .fill_missing(value=0)
+        ...            .convert_dates(['date'])
+        ...            .remove_duplicates()
+        ...            .result())
+    """
+
+    def __init__(self, data: pd.DataFrame):
+        """
+        Initialize DataCleaner with data.
+
+        Args:
+            data: DataFrame to clean
+        """
+        raise NotImplementedError("DataCleaner.__init__ not implemented")
+
+    def fill_missing(self, value=None, strategy: str = None) -> "DataCleaner":
+        """
+        Fill missing values.
+
+        Args:
+            value: Value to fill with (if specified)
+            strategy: Strategy ('mean', 'median') for numeric columns
+
+        Returns:
+            New DataCleaner with filled values
+        """
+        raise NotImplementedError("DataCleaner.fill_missing not implemented")
+
+    def convert_dates(self, columns: list) -> "DataCleaner":
+        """
+        Convert columns to datetime.
+
+        Args:
+            columns: List of column names to convert
+
+        Returns:
+            New DataCleaner with converted dates
+        """
+        raise NotImplementedError("DataCleaner.convert_dates not implemented")
+
+    def remove_duplicates(self, subset: list = None) -> "DataCleaner":
+        """
+        Remove duplicate rows.
+
+        Args:
+            subset: Columns to consider for duplicates
+
+        Returns:
+            New DataCleaner with duplicates removed
+        """
+        raise NotImplementedError("DataCleaner.remove_duplicates not implemented")
+
+    def result(self) -> pd.DataFrame:
+        """
+        Get the cleaned data.
+
+        Returns:
+            Cleaned DataFrame (copy for encapsulation)
+        """
+        raise NotImplementedError("DataCleaner.result not implemented")
+
+    @property
+    def count(self) -> int:
+        """
+        Get row count.
+
+        Returns:
+            Number of rows
+        """
+        raise NotImplementedError("DataCleaner.count not implemented")

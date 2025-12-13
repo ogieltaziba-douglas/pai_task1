@@ -330,11 +330,11 @@ def handle_filter_income(state):
     print("=" * 60)
 
     from src.data_loader import load_csv
-    from src.data_cleaner import convert_dates
+    from src.data_cleaner import DataCleaner
 
     try:
         fresh_data = load_csv("data/vaccinations.csv")
-        fresh_data = convert_dates(fresh_data, ["date"], errors="coerce")
+        fresh_data = DataCleaner(fresh_data).convert_dates(["date"]).result()
     except Exception as e:
         print(f"\n✗ Error: {e}")
         return

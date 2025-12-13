@@ -19,10 +19,10 @@ Functions:
 """
 
 import pandas as pd
-from typing import Optional, List
+from typing import Optional
 
 from src.data_loader import load_csv, get_data_info
-from src.data_cleaner import convert_dates
+from src.data_cleaner import DataCleaner
 from src.filters import filter_by_country
 from src.summaries import calculate_statistics, calculate_trend, get_summary_report
 from src.constants import AGGREGATE_KEYWORDS
@@ -66,7 +66,8 @@ class Dashboard:
         try:
             # Load directly using load_csv
             data = load_csv(filepath)
-            data = convert_dates(data, ["date"], errors="coerce")
+            # Use DataCleaner OOP class
+            data = DataCleaner(data).convert_dates(["date"]).result()
             self._data = data
 
             return {
@@ -181,7 +182,7 @@ def load_data(state: DashboardState, filepath: str = "data/vaccinations.csv") ->
     """
     try:
         data = load_csv(filepath)
-        data = convert_dates(data, ["date"], errors="coerce")
+        data = DataCleaner(data).convert_dates(["date"]).result()
 
         # Count missing values before filling
         missing_before = data.isna().sum().sum()
@@ -329,7 +330,7 @@ def filter_data_by_continent(continent: str) -> pd.DataFrame:
     """
     try:
         data = load_csv("data/vaccinations.csv")
-        data = convert_dates(data, ["date"], errors="coerce")
+        data = DataCleaner(data).convert_dates(["date"]).result()
         return filter_by_country(data, [continent])
     except Exception:
         return pd.DataFrame()

@@ -3,19 +3,17 @@ Test module for data_loader.py
 
 Tests cover:
 - Loading CSV files into pandas DataFrames
-- Loading JSON files into pandas DataFrames
 - Error handling for missing files
 - Edge cases: empty files, corrupt data
-- Data structure validation
+- Data info extraction
 """
 
 import pytest
 import pandas as pd
 import os
 import tempfile
-import json
 
-from src.data_loader import load_csv, load_json, validate_data_structure, get_data_info
+from src.data_loader import load_csv, get_data_info
 
 
 # ============================================================================
@@ -33,32 +31,6 @@ Germany,DEU,2021-01-02,500000,400000
 """
     with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write(content)
-        filepath = f.name
-    yield filepath
-    os.unlink(filepath)
-
-
-@pytest.fixture
-def sample_json_file():
-    """Create a temporary JSON file with sample vaccination data."""
-    data = [
-        {
-            "location": "United Kingdom",
-            "iso_code": "GBR",
-            "date": "2021-01-01",
-            "total_vaccinations": 1000000,
-            "people_vaccinated": 800000,
-        },
-        {
-            "location": "United States",
-            "iso_code": "USA",
-            "date": "2021-01-01",
-            "total_vaccinations": 5000000,
-            "people_vaccinated": 4000000,
-        },
-    ]
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(data, f)
         filepath = f.name
     yield filepath
     os.unlink(filepath)
@@ -161,84 +133,6 @@ class TestLoadCSV:
 
 
 # ============================================================================
-# Tests for load_json()
-# ============================================================================
-
-
-class TestLoadJSON:
-    """Test cases for the load_json function."""
-
-    def test_load_json_returns_dataframe(self, sample_json_file):
-        """Test that load_json returns a pandas DataFrame."""
-        result = load_json(sample_json_file)
-        assert isinstance(result, pd.DataFrame)
-
-    def test_load_json_correct_shape(self, sample_json_file):
-        """Test that loaded DataFrame has correct shape."""
-        result = load_json(sample_json_file)
-        assert result.shape == (2, 5)  # 2 records, 5 fields
-
-    def test_load_json_correct_data(self, sample_json_file):
-        """Test that loaded data contains expected values."""
-        result = load_json(sample_json_file)
-        assert result.iloc[0]["location"] == "United Kingdom"
-        assert result.iloc[1]["total_vaccinations"] == 5000000
-
-    def test_load_json_file_not_found_raises_error(self):
-        """Test that FileNotFoundError is raised for non-existent file."""
-        with pytest.raises(FileNotFoundError):
-            load_json("/nonexistent/path/to/file.json")
-
-    def test_load_json_invalid_json_raises_error(self):
-        """Test that invalid JSON raises an appropriate error."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write("{ invalid json }")
-            filepath = f.name
-        try:
-            with pytest.raises(ValueError):
-                load_json(filepath)
-        finally:
-            os.unlink(filepath)
-
-
-# ============================================================================
-# Tests for validate_data_structure()
-# ============================================================================
-
-
-class TestValidateDataStructure:
-    """Test cases for the validate_data_structure function."""
-
-    def test_validate_with_required_columns_passes(self, sample_csv_file):
-        """Test validation passes when required columns exist."""
-        df = load_csv(sample_csv_file)
-        required_columns = ["location", "date"]
-        result = validate_data_structure(df, required_columns)
-        assert result is True
-
-    def test_validate_with_missing_columns_fails(self, sample_csv_file):
-        """Test validation fails when required columns are missing."""
-        df = load_csv(sample_csv_file)
-        required_columns = ["location", "nonexistent_column"]
-        result = validate_data_structure(df, required_columns)
-        assert result is False
-
-    def test_validate_empty_dataframe(self):
-        """Test validation with empty DataFrame."""
-        df = pd.DataFrame()
-        required_columns = ["location"]
-        result = validate_data_structure(df, required_columns)
-        assert result is False
-
-    def test_validate_no_required_columns(self, sample_csv_file):
-        """Test validation with no required columns returns True."""
-        df = load_csv(sample_csv_file)
-        required_columns = []
-        result = validate_data_structure(df, required_columns)
-        assert result is True
-
-
-# ============================================================================
 # Tests for get_data_info()
 # ============================================================================
 
@@ -288,12 +182,6 @@ class TestGetDataInfo:
 
 class TestDataLoaderIntegration:
     """Integration tests for data loader module."""
-
-    def test_load_and_validate_csv(self, sample_csv_file):
-        """Test loading CSV and validating its structure."""
-        df = load_csv(sample_csv_file)
-        is_valid = validate_data_structure(df, ["location", "iso_code", "date"])
-        assert is_valid is True
 
     def test_load_and_get_info(self, sample_csv_file):
         """Test loading CSV and getting its info."""

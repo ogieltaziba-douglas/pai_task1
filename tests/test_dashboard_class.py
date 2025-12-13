@@ -7,8 +7,6 @@ state management, and provides a clean OOP interface.
 
 import pytest
 import pandas as pd
-import tempfile
-import os
 
 
 @pytest.fixture

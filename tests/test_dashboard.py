@@ -4,9 +4,8 @@ Tests for Dashboard Module
 Tests for business logic and data operations.
 """
 
-import pytest
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestDashboardState:

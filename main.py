@@ -28,6 +28,7 @@ from src.menu_handlers import (
     handle_trends,
     handle_charts,
     handle_export,
+    handle_view_log,
 )
 
 
@@ -49,6 +50,7 @@ def display_menu():
     print("  9.  Generate charts")
     print("  ─── EXPORT ────────────")
     print("  10. Export data to CSV")
+    print("  11. View activity log")
     print("  ─────────────────────")
     print("  0.  Exit")
     print("=" * 50)
@@ -74,6 +76,7 @@ def main():
         "8": handle_trends,
         "9": handle_charts,
         "10": handle_export,
+        "11": handle_view_log,
     }
 
     while True:

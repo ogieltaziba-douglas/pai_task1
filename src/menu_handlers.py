@@ -46,6 +46,7 @@ from src.summaries import count_by_category
 from src.visualizations import create_line_chart, display_table, save_chart
 from src.cli import get_user_input
 from src.database import create_connection, insert_dataframe, close_connection
+from src.logger import log_activity, get_log_entries, get_session_log
 
 
 def format_preview(df, note_missing=True):
@@ -61,6 +62,31 @@ def format_preview(df, note_missing=True):
         )
 
     return table
+
+
+def prompt_date_filter(data):
+    """
+    Prompt user for date range and filter data.
+
+    Args:
+        data: DataFrame to filter
+
+    Returns:
+        Filtered DataFrame (or original if no filter applied)
+    """
+    from src.cli import parse_date_input
+    from src.filters import filter_by_date_range
+
+    print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
+    start = parse_date_input(get_user_input("Start date"))
+    end = parse_date_input(get_user_input("End date"))
+
+    if start is not None or end is not None:
+        filtered = filter_by_date_range(data, start, end)
+        print(f"\n✓ Narrowed to {len(filtered):,} records")
+        return filtered
+
+    return data
 
 
 def display_country_menu():
@@ -122,6 +148,11 @@ def handle_load_data(state):
         )
         print(f"  Columns: {', '.join(result['columns'][:5])}...")
 
+        # Log the activity
+        log_activity(
+            "LOAD_DATA", f"Loaded {result['row_count']:,} records from {filepath}"
+        )
+
         # Inform user about missing value handling
         if result.get("missing_filled", 0) > 0:
             print("\n  Data Cleaning Applied:")
@@ -139,6 +170,7 @@ def handle_load_data(state):
                 db_conn = create_connection("data/vaccinations.db")
                 rows = insert_dataframe(db_conn, "vaccinations", state.current_data)
                 print(f"\n✓ Inserted {rows:,} records into database")
+                log_activity("LOAD_DB", f"Inserted {rows:,} records into database")
                 close_connection(db_conn)
             except Exception as e:
                 print(f"\n✗ Error: {e}")
@@ -196,18 +228,12 @@ def handle_filter_country(state):
     print(f"\n✓ Found {len(filtered):,} records for: {country}")
     print(f"  Date range: {date_min.date()} to {date_max.date()}")
 
+    # Log the preview
+    log_activity("PREVIEW_COUNTRY", f"Viewed {country} ({len(filtered):,} records)")
+
     # Optional date filtering
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
-        from src.cli import parse_date_input
-        from src.filters import filter_by_date_range
-
-        print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
-        start = parse_date_input(get_user_input("Start date"))
-        end = parse_date_input(get_user_input("End date"))
-
-        if start is not None or end is not None:
-            filtered = filter_by_date_range(filtered, start, end)
-            print(f"\n✓ Narrowed to {len(filtered):,} records")
+        filtered = prompt_date_filter(filtered)
 
     print("\nPreview (first 10 rows):")
     cols = ["location", "date", "total_vaccinations", "daily_vaccinations"]
@@ -217,6 +243,9 @@ def handle_filter_country(state):
 
     if get_user_input("\nUse filtered data? (y/n)").lower() == "y":
         state.current_data = filtered
+        log_activity(
+            "APPLY_COUNTRY", f"Applied filter for {country} ({len(filtered):,} records)"
+        )
         print("✓ Now using filtered data.")
 
 
@@ -256,18 +285,12 @@ def handle_filter_continent(state):
     print(f"\n✓ Found {len(filtered):,} records for: {continent}")
     print(f"  Date range: {date_min.date()} to {date_max.date()}")
 
+    # Log the preview
+    log_activity("PREVIEW_CONTINENT", f"Viewed {continent} ({len(filtered):,} records)")
+
     # Optional date filtering
     if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
-        from src.cli import parse_date_input
-        from src.filters import filter_by_date_range
-
-        print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
-        start = parse_date_input(get_user_input("Start date"))
-        end = parse_date_input(get_user_input("End date"))
-
-        if start is not None or end is not None:
-            filtered = filter_by_date_range(filtered, start, end)
-            print(f"\n✓ Narrowed to {len(filtered):,} records")
+        filtered = prompt_date_filter(filtered)
 
     print("\nPreview (first 10 rows):")
     cols = ["location", "date", "total_vaccinations", "daily_vaccinations"]
@@ -277,6 +300,10 @@ def handle_filter_continent(state):
 
     if get_user_input("\nUse this data? (y/n)").lower() == "y":
         state.current_data = filtered
+        log_activity(
+            "APPLY_CONTINENT",
+            f"Applied filter for {continent} ({len(filtered):,} records)",
+        )
         print("✓ Now using continent data.")
 
 
@@ -579,19 +606,14 @@ def handle_export(state):
                 print(
                     f"\n  ✓ Filtered to {len(data_to_export):,} records for {country}"
                 )
+
+                # Offer date filter after country filter
+                if get_user_input("\n  Also filter by date? (y/n)").lower() == "y":
+                    data_to_export = prompt_date_filter(data_to_export)
             else:
                 print("\n  ✗ No selection, exporting all data.")
         elif choice == "3":
-            from src.cli import parse_date_input
-            from src.filters import filter_by_date_range
-
-            print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
-            start = parse_date_input(get_user_input("Start date"))
-            end = parse_date_input(get_user_input("End date"))
-
-            if start is not None or end is not None:
-                data_to_export = filter_by_date_range(data_to_export, start, end)
-                print(f"\n  ✓ Filtered to {len(data_to_export):,} records")
+            data_to_export = prompt_date_filter(data_to_export)
         elif choice == "4":
             print("\n  Export cancelled.")
             return
@@ -616,4 +638,30 @@ def handle_export(state):
     # Save the data
     data_to_export.to_csv(filepath, index=False)
 
+    log_activity("EXPORT", f"Exported {len(data_to_export):,} records to {filepath}")
     print(f"\n✓ Exported {len(data_to_export):,} records to: {filepath}")
+
+
+def handle_view_log(state):
+    """View activity log."""
+    print("\n" + "=" * 55)
+    print("  Activity Log")
+    print("=" * 55)
+
+    print("\n--- Current Session ---")
+    session_log = get_session_log()
+    if session_log:
+        for entry in session_log[-10:]:  # Show last 10 session entries
+            print(f"  {entry}")
+    else:
+        print("  No activities in current session.")
+
+    print("\n--- Log File (last 10 entries) ---")
+    log_entries = get_log_entries()
+    if log_entries:
+        for entry in log_entries[-10:]:
+            print(f"  {entry}")
+    else:
+        print("  No log file entries found.")
+
+    print("\n" + "=" * 55)

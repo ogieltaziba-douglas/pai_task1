@@ -174,7 +174,7 @@ def handle_view_summary(state):
 
 
 def handle_filter_country(state):
-    """Handle country filter."""
+    """Handle country filter with optional date range."""
     if state.current_data is None:
         print("\n✗ No data loaded. Please load data first (Option 1).")
         return
@@ -190,7 +190,24 @@ def handle_filter_country(state):
         print(f"\n✗ No data found for: {country}")
         return
 
-    print(f"\n✓ Filtered to {len(filtered):,} records for: {country}")
+    # Show initial filter result
+    date_min = filtered["date"].min()
+    date_max = filtered["date"].max()
+    print(f"\n✓ Found {len(filtered):,} records for: {country}")
+    print(f"  Date range: {date_min.date()} to {date_max.date()}")
+
+    # Optional date filtering
+    if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
+        from src.cli import parse_date_input
+        from src.filters import filter_by_date_range
+
+        print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
+        start = parse_date_input(get_user_input("Start date"))
+        end = parse_date_input(get_user_input("End date"))
+
+        if start is not None or end is not None:
+            filtered = filter_by_date_range(filtered, start, end)
+            print(f"\n✓ Narrowed to {len(filtered):,} records")
 
     print("\nPreview (first 10 rows):")
     cols = ["location", "date", "total_vaccinations", "daily_vaccinations"]
@@ -198,13 +215,13 @@ def handle_filter_country(state):
     preview = filtered[available].head(10).reset_index(drop=True)
     print(format_preview(preview))
 
-    if get_user_input("Use filtered data? (y/n)").lower() == "y":
+    if get_user_input("\nUse filtered data? (y/n)").lower() == "y":
         state.current_data = filtered
         print("✓ Now using filtered data.")
 
 
 def handle_filter_continent(state):
-    """Handle continent filter."""
+    """Handle continent filter with optional date range."""
     print("\nNote: This will reload fresh data from the original CSV.")
 
     print("\nAvailable continents:")
@@ -233,7 +250,24 @@ def handle_filter_continent(state):
         print(f"\n✗ No data found for: {continent}")
         return
 
-    print(f"\n✓ Filtered to {len(filtered):,} records for: {continent}")
+    # Show initial filter result
+    date_min = filtered["date"].min()
+    date_max = filtered["date"].max()
+    print(f"\n✓ Found {len(filtered):,} records for: {continent}")
+    print(f"  Date range: {date_min.date()} to {date_max.date()}")
+
+    # Optional date filtering
+    if get_user_input("\nFilter by date range? (y/n)").lower() == "y":
+        from src.cli import parse_date_input
+        from src.filters import filter_by_date_range
+
+        print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
+        start = parse_date_input(get_user_input("Start date"))
+        end = parse_date_input(get_user_input("End date"))
+
+        if start is not None or end is not None:
+            filtered = filter_by_date_range(filtered, start, end)
+            print(f"\n✓ Narrowed to {len(filtered):,} records")
 
     print("\nPreview (first 10 rows):")
     cols = ["location", "date", "total_vaccinations", "daily_vaccinations"]
@@ -241,7 +275,7 @@ def handle_filter_continent(state):
     preview = filtered[available].head(10).reset_index(drop=True)
     print(format_preview(preview))
 
-    if get_user_input("Use this data? (y/n)").lower() == "y":
+    if get_user_input("\nUse this data? (y/n)").lower() == "y":
         state.current_data = filtered
         print("✓ Now using continent data.")
 
@@ -292,6 +326,17 @@ def handle_filter_date(state):
     from src.cli import parse_date_input
     from src.filters import filter_by_date_range
 
+    # Show current data range
+    current_min = state.current_data["date"].min()
+    current_max = state.current_data["date"].max()
+    original_count = len(state.current_data)
+
+    print("\n" + "=" * 55)
+    print("  Filter by Date Range")
+    print("=" * 55)
+    print(f"\n  Current data spans: {current_min.date()} to {current_max.date()}")
+    print(f"  Total records: {original_count:,}")
+
     print("\nEnter date range (YYYY-MM-DD format, leave blank to skip):")
     start = parse_date_input(get_user_input("Start date"))
     end = parse_date_input(get_user_input("End date"))
@@ -301,9 +346,51 @@ def handle_filter_date(state):
         return
 
     filtered = filter_by_date_range(state.current_data, start, end)
-    print(f"\n✓ Filtered to {len(filtered):,} records")
 
-    if get_user_input("Use filtered data? (y/n)").lower() == "y":
+    # Calculate what was removed
+    removed = original_count - len(filtered)
+
+    # Determine applied range
+    start_str = start.strftime("%Y-%m-%d") if start else "earliest"
+    end_str = end.strftime("%Y-%m-%d") if end else "latest"
+
+    print("\n" + "=" * 55)
+    print(f"  Date Filter Applied: {start_str} to {end_str}")
+    print("=" * 55)
+    print(f"\n  Records kept:    {len(filtered):,}")
+    print(f"  Records removed: {removed:,} ({removed / original_count * 100:.1f}%)")
+
+    if not filtered.empty:
+        actual_min = filtered["date"].min()
+        actual_max = filtered["date"].max()
+        print(f"  Actual range:    {actual_min.date()} to {actual_max.date()}")
+
+        # Show unique locations in filtered data
+        unique_locations = filtered["location"].nunique()
+        print(f"  Locations:       {unique_locations}")
+
+        print("\nPreview (1 sample per key country):")
+        cols = ["location", "date", "total_vaccinations", "daily_vaccinations"]
+        available = [c for c in cols if c in filtered.columns]
+
+        # Get latest record for each key country that exists in filtered data
+        from src.constants import ALL_KEY_COUNTRIES
+
+        key_country_data = filtered[filtered["location"].isin(ALL_KEY_COUNTRIES)]
+        if not key_country_data.empty:
+            # Get latest date per country
+            latest_idx = key_country_data.groupby("location")["date"].idxmax()
+            preview = (
+                key_country_data.loc[latest_idx][available]
+                .head(12)
+                .reset_index(drop=True)
+            )
+        else:
+            # Fallback to first 10 rows
+            preview = filtered[available].head(10).reset_index(drop=True)
+        print(format_preview(preview))
+
+    if get_user_input("\nUse filtered data? (y/n)").lower() == "y":
         state.current_data = filtered
         print("✓ Now using filtered data.")
 
@@ -350,7 +437,7 @@ def handle_statistics(state):
 
 
 def handle_trends(state):
-    """Handle trend analysis."""
+    """Handle trend analysis with peak values."""
     if state.current_data is None:
         print("\n✗ No data loaded. Please load data first (Option 1).")
         return
@@ -366,9 +453,12 @@ def handle_trends(state):
         print(f"\n✗ {trend['error']}")
         return
 
-    print(f"\n{'=' * 50}")
+    # Get country data for peak analysis
+    country_data = filter_data_by_country(state, [country]).sort_values("date")
+
+    print(f"\n{'=' * 55}")
     print(f"  {country} - Vaccination Trend Analysis")
-    print(f"{'=' * 50}")
+    print(f"{'=' * 55}")
 
     print(
         f"\nDate Range: {trend['date_range']['start'].date()} to {trend['date_range']['end'].date()}"
@@ -382,10 +472,28 @@ def handle_trends(state):
     print(f"   Total Change:   {trend['total_change']:+,.0f}")
     print(f"   Percent Change: {trend['percent_change']:+.1f}%")
 
-    print(f"{'=' * 50}")
+    # Show peak information
+    if "daily_vaccinations" in country_data.columns:
+        valid_data = country_data.dropna(subset=["daily_vaccinations"])
+        if not valid_data.empty:
+            peak_idx = valid_data["daily_vaccinations"].idxmax()
+            peak_value = valid_data.loc[peak_idx, "daily_vaccinations"]
+            peak_date = valid_data.loc[peak_idx, "date"]
+            print(f"\n   Peak Value:     {peak_value:,.0f}")
+            print(f"   Peak Date:      {peak_date.date()}")
+
+    # Add context note for decreasing trends
+    if (
+        trend["direction"] == "decreasing"
+        and trend["end_value"] < trend["start_value"] * 0.1
+    ):
+        print(
+            "\n  Note: This trend reflects a completed/winding-down vaccination campaign."
+        )
+
+    print(f"{'=' * 55}")
 
     if get_user_input("Generate trend chart? (y/n)").lower() == "y":
-        country_data = filter_data_by_country(state, [country]).sort_values("date")
         fig = create_line_chart(
             country_data,
             "date",
@@ -435,17 +543,77 @@ def handle_charts(state):
 
 
 def handle_export(state):
-    """Handle data export."""
+    """Handle data export with preview and filter options."""
     if state.current_data is None:
         print("\n✗ No data loaded. Please load data first (Option 1).")
         return
 
+    data_to_export = state.current_data
+
+    # Show what will be exported
+    date_min = data_to_export["date"].min()
+    date_max = data_to_export["date"].max()
+    unique_locations = data_to_export["location"].nunique()
+
+    print("\n" + "=" * 55)
+    print("  Export Data to CSV")
+    print("=" * 55)
+    print(f"\n  Records to export: {len(data_to_export):,}")
+    print(f"  Date range:        {date_min.date()} to {date_max.date()}")
+    print(f"  Locations:         {unique_locations}")
+
+    # Offer filter options if exporting large dataset
+    if unique_locations > 10:
+        print("\n  Options:")
+        print("    1. Export all data")
+        print("    2. Filter by country first")
+        print("    3. Filter by date first")
+        print("    4. Cancel")
+
+        choice = get_user_input("\n  Select option (1-4)")
+
+        if choice == "2":
+            country = display_country_menu()
+            if country:
+                data_to_export = filter_data_by_country(state, [country])
+                print(
+                    f"\n  ✓ Filtered to {len(data_to_export):,} records for {country}"
+                )
+            else:
+                print("\n  ✗ No selection, exporting all data.")
+        elif choice == "3":
+            from src.cli import parse_date_input
+            from src.filters import filter_by_date_range
+
+            print("\nEnter date range (YYYY-MM-DD, leave blank to skip):")
+            start = parse_date_input(get_user_input("Start date"))
+            end = parse_date_input(get_user_input("End date"))
+
+            if start is not None or end is not None:
+                data_to_export = filter_by_date_range(data_to_export, start, end)
+                print(f"\n  ✓ Filtered to {len(data_to_export):,} records")
+        elif choice == "4":
+            print("\n  Export cancelled.")
+            return
+
+    # Confirm export
+    if (
+        get_user_input(f"\nExport {len(data_to_export):,} records? (y/n)").lower()
+        != "y"
+    ):
+        print("\n  Export cancelled.")
+        return
+
     os.makedirs("exports", exist_ok=True)
-    filepath = "exports/filtered_data.csv"
 
-    result = export_data(state, filepath)
-
-    if result["success"]:
-        print(f"\n✓ Exported {result['records']:,} records to: {result['filepath']}")
+    # Generate filename based on filter
+    if unique_locations == 1:
+        location = data_to_export["location"].iloc[0]
+        filepath = f"exports/{location.replace(' ', '_')}_data.csv"
     else:
-        print(f"\n✗ Error: {result['error']}")
+        filepath = "exports/vaccination_data.csv"
+
+    # Save the data
+    data_to_export.to_csv(filepath, index=False)
+
+    print(f"\n✓ Exported {len(data_to_export):,} records to: {filepath}")

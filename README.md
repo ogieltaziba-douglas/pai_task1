@@ -53,13 +53,13 @@ pai_task1/
 ├── src/
 │   ├── dashboard.py             # Dashboard + DashboardState classes
 │   ├── data_loader.py           # CSV loading (load_csv, get_data_info)
-│   ├── data_cleaner.py          # DataCleaner class (OOP)
-│   ├── filters.py               # DataFilter class (SQL-based, OOP)
+│   ├── data_cleaner.py          # DataCleaner class 
+│   ├── filters.py               # DataFilter class 
 │   ├── database.py              # SQLite operations
 │   ├── summaries.py             # Statistical functions
 │   ├── visualizations.py        # Chart generation
 │   ├── menu_handlers.py         # CLI menu handlers
-│   ├── logger.py                # ActivityLogger class (OOP)
+│   ├── logger.py                # ActivityLogger class 
 │   ├── constants.py             # Configuration constants
 │   ├── cli.py                   # CLI utilities
 │   └── exporter.py              # CSV export

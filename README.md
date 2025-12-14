@@ -1,23 +1,22 @@
 # Public Health Data Insights Dashboard
 
-A Python-based data insights tool for researchers analysing public health data (vaccination rates, disease outbreaks, mental health reports). Built with Test-Driven Development (TDD) methodology.
+A Python-based data insights tool for researchers analysing COVID-19 vaccination data. Built with Test-Driven Development (TDD) and Object-Oriented Programming (OOP).
 
 ## Features
 
-- **Data Access**: Load data from CSV/JSON and store in SQLite database
-- **Data Cleaning**: Handle missing values, type conversions, data validation
-- **Filtering**: Filter by country, date range, age group, and custom criteria
-- **Summaries**: Calculate mean, min, max, counts, and trends over time
-- **Visualizations**: Generate charts (matplotlib) and formatted tables (pandas)
-- **CRUD Operations**: Create, read, update, delete records in database
-- **Export**: Export filtered data and summaries to CSV
-- **Logging**: Track all user activities
+- **Data Loading**: Load CSV data into SQLite database
+- **Data Cleaning**: Handle missing values with forward fill (`DataCleaner` class)
+- **SQL Filtering**: Filter by country, continent, income group, date range (`DataFilter` class)
+- **Summaries**: Calculate statistics, trends, and aggregations
+- **Visualizations**: Generate charts (matplotlib) and formatted tables
+- **Export**: Export filtered data to CSV
+- **Logging**: Track user activities (`ActivityLogger` class)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/ogieltaziba-douglas/pai_task1.git
 cd pai_task1
 ```
 
@@ -46,43 +45,49 @@ Run tests:
 pytest tests/ -v
 ```
 
-Run tests with coverage:
-```bash
-pytest tests/ --cov=src --cov-report=html
-```
-
 ## Project Structure
 
 ```
 pai_task1/
-├── README.md                    # This file
-├── requirements.txt             # Python dependencies
 ├── main.py                      # Application entry point
-├── src/                         # Source code modules
-│   ├── data_loader.py           # Data access and loading
+├── src/
+│   ├── dashboard.py             # Dashboard + DashboardState classes
+│   ├── data_loader.py           # CSV loading (load_csv, get_data_info)
+│   ├── data_cleaner.py          # DataCleaner class (OOP)
+│   ├── filters.py               # DataFilter class (SQL-based, OOP)
 │   ├── database.py              # SQLite operations
-│   ├── data_cleaner.py          # Data cleaning functions
-│   ├── filters.py               # Filtering operations
-│   ├── summaries.py             # Statistical summaries
+│   ├── summaries.py             # Statistical functions
 │   ├── visualizations.py        # Chart generation
-│   ├── exporter.py              # CSV export
-│   └── logger.py                # Activity logging
-├── tests/                       # Test files (TDD)
-├── data/                        # Sample datasets
+│   ├── menu_handlers.py         # CLI menu handlers
+│   ├── logger.py                # ActivityLogger class (OOP)
+│   ├── constants.py             # Configuration constants
+│   ├── cli.py                   # CLI utilities
+│   └── exporter.py              # CSV export
+├── tests/                       # 193 tests (pytest)
+├── data/                        # Dataset (vaccinations.csv)
 ├── logs/                        # Activity logs
-└── exports/                     # Exported CSV files
+└── exports/                     # Exported files
 ```
 
-## Git Repository
+## OOP Classes
 
-**Repository Link**: https://github.com/ogieltaziba-douglas/pai_task1.git
+| Class | Module | Purpose |
+|-------|--------|---------|
+| `Dashboard` | `dashboard.py` | Main application state with encapsulation |
+| `DashboardState` | `dashboard.py` | Legacy state holder (backwards compatible) |
+| `DataFilter` | `filters.py` | SQL query builder with method chaining |
+| `DataCleaner` | `data_cleaner.py` | Data cleaning with method chaining |
+| `ActivityLogger` | `logger.py` | Session and file logging |
 
 ## Development Approach
 
-This project follows **Test-Driven Development (TDD)**:
-1. Write failing tests first
-2. Implement minimal code to pass tests
-3. Refactor while keeping tests green
+- **TDD**: Tests written first, 193 tests passing
+- **OOP**: Encapsulation, properties, method chaining
+- **SQL**: All filtering uses SQLite queries 
+
+## Git Repository
+
+**Repository**: https://github.com/ogieltaziba-douglas/pai_task1.git
 
 ## Author
 
